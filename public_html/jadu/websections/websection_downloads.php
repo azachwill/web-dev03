@@ -1101,7 +1101,14 @@
 <?php
 			if ($adminPageAccessPermissions->updateContent) {
 ?>
-				<td class="generic_row_link"><span><a href="./websection_downloads.php?downloadID=<?php print $download->id; ?>&amp;fileID=<?php print $fileItem->id; ?>"></span>
+				<td class="generic_row_link"><span><a href="./websection_downloads.php?downloadID=<?php print $download->id; ?>&amp;fileID=<?php print $fileItem->id; ?>">
+				<?php print encodeHtml($fileItem->title);?></a>
+                <!--include file for copy to clipboard button-->
+                	<?php if (file_exists(JADU_HOME . "/custom/fordham_websection_downloads_custom.php")) {
+                              include("custom/fordham_websection_downloads_custom.php");}
+					 ?>
+                
+                </span>
              
                 </td>
 <?php
