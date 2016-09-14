@@ -529,12 +529,18 @@ RewriteRule ^/?feedback/?$ /site/scripts/feedback.php [QSA,NC,L]
 RewriteRule ^/?thanks/?$ /site/scripts/thanks.php [QSA,NC,L]
 
 # search_results.php
-RewriteRule ^/?site_search/results/?$	/site/scripts/search_results.php [QSA,NC,L]
-RewriteRule ^/?site_search/results/(.*) /site/scripts/search_results.php?q=$1 [QSA,NC,L]
+#RewriteRule ^/?site_search/results/?$	/site/scripts/search_results.php [QSA,NC,L]
+#RewriteRule ^/?site_search/results/(.*) /site/scripts/search_results.php?q=$1 [QSA,NC,L]
+
+RewriteCond %{QUERY_STRING} ^q=(.*)$
+RewriteRule ^/?site_search/results/?$  http://www.google.com/search?q=%1+site:Fordham.edu [NC,L]
+RewriteRule ^/?site_search/results/(.*) http://www.google.com/search?q=%1+site:Fordham.edu [NC,L]
 
 # search_index.php
-RewriteRule ^/?site_search/no_results/?$ /site/scripts/search_index.php?noResults=true [QSA,NC,L]
-RewriteRule ^/?site_search/?$ /site/scripts/search_index.php [QSA,NC,L]
+#RewriteRule ^/?site_search/no_results/?$ /site/scripts/search_index.php?noResults=true [QSA,NC,L]
+#RewriteRule ^/?site_search/?$ /site/scripts/search_index.php [QSA,NC,L]
+RewriteRule ^/?site_search/no_results/?$  http://www.google.com/search?q=%1+site:Fordham.edu [NC,L]
+RewriteRule ^/?site_search/?$  http://www.google.com/search?q=%1+site:Fordham.edu [NC,L]
 
 # whats_new_index.php
 RewriteRule ^/?whats_new/?$ /site/scripts/whats_new_index.php [QSA,NC,L]
@@ -789,10 +795,10 @@ RewriteRule ^/?api/services/category/([0-9]+)\.xml$ /api.php?resource=services&m
 RewriteRule ^/?api/news/([0-9]+)\.xml$ /api.php?resource=news&method=single&newsID=$1 [QSA,NC,L]
 RewriteRule ^/?api/committees/([0-9]+)\.xml$ /api.php?resource=committees&method=single&id=$1 [QSA,NC,L]
 
-RewriteRule ^/?api/rupa/collections/([\w_\+]+)/search\.xml$ /api.php?resource=rupa&method=search&search_collections=$1 [QSA,NC,L]
-RewriteRule ^/?api/rupa/searches/([\w_\+]+)\.xml$ /api.php?resource=rupa&method=searches&rank=$1 [QSA,NC,L]
-RewriteRule ^/?api/rupa/collections/([\w_\+]+)/searches\.xml$ /api.php?resource=rupa&method=searches&search_collections=$1 [QSA,NC,L]
-RewriteRule ^/?api/rupa/collections/([\w_\+]+)/searches/([\w]+)\.xml$ /api.php?resource=rupa&method=searches&search_collections=$1&rank=$2 [QSA,NC,L]
+#RewriteRule ^/?api/rupa/collections/([\w_\+]+)/search\.xml$ /api.php?resource=rupa&method=search&search_collections=$1 [QSA,NC,L]
+#RewriteRule ^/?api/rupa/searches/([\w_\+]+)\.xml$ /api.php?resource=rupa&method=searches&rank=$1 [QSA,NC,L]
+#RewriteRule ^/?api/rupa/collections/([\w_\+]+)/searches\.xml$ /api.php?resource=rupa&method=searches&search_collections=$1 [QSA,NC,L]
+#RewriteRule ^/?api/rupa/collections/([\w_\+]+)/searches/([\w]+)\.xml$ /api.php?resource=rupa&method=searches&search_collections=$1&rank=$2 [QSA,NC,L]
 
 RewriteRule ^/?api/templates/template/([0-9]+)\.xml$ /api.php?resource=templates&method=template&id=$1 [QSA,NC,L]
 RewriteRule ^/?api/templates/role/([\w_\+]+)\.xml$ /api.php?resource=templates&method=role&shortName=$1 [QSA,NC,L]
