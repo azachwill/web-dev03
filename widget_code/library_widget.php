@@ -4,9 +4,9 @@ FRONT-END
 <div id="jumbotron" style="background-image:url('http://www.library.fordham.edu/images/bg4.jpg');">
 <link rel="stylesheet" href="/site/custom_css/jquery-ui.min.css">
 <link rel="stylesheet" href="/site/custom_css/jquery-ui.theme.min.css">
-  <script src="//code.jquery.com/jquery-1.12.4.js"></script>
-  <script src="//code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
-<link rel="stylesheet" href="http://www.library.fordham.edu/css/sirsiform.css">
+<script src="/site/javascript/fordham/jquery-1.12.4.min.js"></script>
+  <script src="/site/javascript/fordham/jquery-ui.min.js"></script>
+<link rel="stylesheet" href="/site/custom_css/sirsiform.css">
 <?php 
 //include_once('websections/JaduHomepageWidgetSettings.php');
 include_once('custom/mobile_detect.php');
@@ -61,44 +61,9 @@ $futabcontent5 = '<div id="tabs-5">'.$futabcontent5.'</div>';
 
 $fuhourscontent = '%FU_HOURS_CONTENT%';
 
-if ( $detect->isMobile()   || $detect->isTablet()  ||$detect->isiOS() || $detect->isAndroidOS()  ) {
-?>
-<!--for mobile -->
- <script>
-var $i = jQuery.noConflict();
- $i(function() {
-    $i( "#accordion" ).accordion();
-  });
- </script> 
-
-<div id="accordion">
-<h3><?php echo $futabhead1 ?></h3>
-  <div  style="max-height:10em;">
-    <p><?php echo $futabcontent1 ?></p>
-  </div>
-  
-<h3><?php echo $futabhead2 ?></h3>
-  <div>
-    <p><?php echo $futabcontent2 ?></p>
- </div>
-  
-<h3><?php echo $futabhead3 ?></h3>
-  <div style="max-height:12em;">
-    <p> <?php echo $futabcontent3 ?></p>
-  </div>
-  
-<h3><?php echo $futabhead4 ?></h3>
-  <div id="futab4">  
-    <?php echo $futabcontent4?>
-  </div>
-</div>
-</div><!--end tabs_collapsed, desktop < 768px wide -->
-
-<?php
-}
-else{
 
 ?>
+
 <div id="tabs_full">
 <script>
     var $i = jQuery.noConflict();
@@ -153,6 +118,10 @@ var $i = jQuery.noConflict();
   
 <h3><?php echo $futabhead3 ?></h3>
   <div style="height:10em;min-height:10em;">
+<style>
+ .ui-widget button
+{color:#000000;background-color:#ffffff;padding:.25em .75em;border:none;}
+</style>
  <?php echo $futabcontent3 ?>
   </div>
   
@@ -162,9 +131,7 @@ var $i = jQuery.noConflict();
   </div>
 </div>
 </div><!--end tabs_collapsed, desktop < 768px wide -->
-<?php
-}
-?> 
+
       <div id="fu_libraryhours" class="col-md-4" style="background-color:#900028; padding:20px 10px; color:#fff; min-height:400px;">
           <?php echo $fuhourscontent ?> 
        </div>
@@ -185,8 +152,6 @@ if (document.getElementById('tabs') ){
 });
 }
 
-springshare_widget_config_1441984503194 = {  };
-!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+"://lgapi.libapps.com/widgets.php?site_id=513&widget_type=7&widget_embed_type=1&output_format=1&search_box_type=2&placeholder_text=Enter+Search+Words&button_text=Search&widget_height=&widget_width=250&config_id=1441984503194";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","s-lg-widget-script-1441984503194");
 
 
 ----------------------------------------------------------------------

@@ -1,0 +1,63 @@
+#sirsiwrapper {
+		margin:0px auto;
+		border:none;
+		padding:2px;
+	}
+	.sirsirow {
+		border:none;
+		padding:10px 2px 20px;
+	}
+	.sirsifacet label {
+		width:80px;
+		font-size: 13.33px;
+	}
+	.sirsicontent, .sirsifacet {
+		font-size: 13.33px;
+	}
+	.sirsicontent div {
+		border:none;
+		display:inline-block;
+		vertical-align:middle;
+	}
+	.sirsifacet div {
+		border:none;
+		display:inline-block;
+		vertical-align:middle;
+	}
+	#sirsifacet-left {
+		width:80px;
+	}
+	#sirsicontent-main, #sirsicontent-right, #sirsifacet-main, #sirsfacet-right {
+		margin-left:5px;
+	}
+	#sirsicontent-left select {
+		display:initial;
+		height:initial;
+		padding:.25em;
+		margin:0px;
+	}
+	#sirsicontent-main input {
+		width:300px;
+		display:initial;
+		height:initial;
+		padding:.5em;
+		margin:0px;
+	}
+	#sirsicontent-right select {
+		display:initial;
+		height:initial;
+		padding:.25em;
+		margin:0px;
+	}
+	#sirsifacet-left select {
+		display:initial;
+		height:initial;
+		padding:.25em;
+		margin:0px;
+	}
+	#sirsifacet-main input {
+		display:initial;
+		height:initial;
+		padding:.5em;
+		margin:0px;
+	}
