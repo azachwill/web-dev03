@@ -102,8 +102,10 @@ $fuhourscontent = '%FU_HOURS_CONTENT%';
  <script>
 var $i = jQuery.noConflict();
  $i(function() {
-    $i( "#accordion" ).accordion();
-  });
+    $i( "#accordion" ).accordion({
+  active: 5
+   });
+})
  </script> 
 <div id="accordion">
 <h3><?php echo $futabhead1 ?></h3>
