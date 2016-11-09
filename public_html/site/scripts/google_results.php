@@ -52,6 +52,8 @@
 
         $currentRupaSearch->setQuery($query);
     }
+	
+	
 
     if (isset($_GET['quoteQuery'])) {
         $currentRupaSearch->setQuoteQuery($_GET['quoteQuery']);
