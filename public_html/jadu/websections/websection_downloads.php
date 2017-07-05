@@ -63,13 +63,13 @@
 	}
 	else {
 		$modulePagePermissions = getModulePageFromURL('/websections/websection_downloads.php');
-	   	if ($modulePagePermissions->parent_id > -1) {
-	   		$modulePageParent = getModulePage($modulePagePermissions->parent_id);
-	   		$adminPageAccessPermissions = getAdminPageAccess($adminService->getCurrentAdminID(), $modulePageParent->id);
-	   	}
-	   	else {
-	   		$adminPageAccessPermissions = getAdminPageAccess($adminService->getCurrentAdminID(), $modulePagePermissions->id);
-	   	}
+		if ($modulePagePermissions->parent_id > -1) {
+			$modulePageParent = getModulePage($modulePagePermissions->parent_id);
+			$adminPageAccessPermissions = getAdminPageAccess($adminService->getCurrentAdminID(), $modulePageParent->id);
+		}
+		else {
+			$adminPageAccessPermissions = getAdminPageAccess($adminService->getCurrentAdminID(), $modulePagePermissions->id);
+		}
 	}
 	// end retail integration
 
@@ -245,16 +245,6 @@
 
 				$statusMessage = 'Download saved';
 			}
-		}
-	}
-
-	// Change item position
-	if (isset($_GET['move']) && isset($_GET['moveFileID'])) {
-		if (moveDownloadFile($_GET['moveFileID'], $_GET['move'])) {
-			$statusMessage = 'The download file has been moved';
-		}
-		else {
-			$statusMessage = 'The download file could not be moved';
 		}
 	}
 
@@ -448,7 +438,7 @@
 							if (file_exists($downloadFilePath) && !empty($file->id)) {
 								// Only upload the file if it doesn't already exist
 								if (!file_exists($downloadFilePath . '/' . $file->filemd5)) {
-									$uploadResult = uploadFile($_FILES['downloadFileBrowse']['tmp_name'], $downloadFilePath . '/' . $file->filemd5);
+									$uploadResult = uploadFile($_FILES['downloadFileBrowse']['tmp_name'], $downloadFilePath . '/' . $file->filemd5, 0770);
 								}
 								else {
 									// File already exists
@@ -1068,22 +1058,22 @@
 ?>
 	<div id="fileListArea"<?php if ($numFiles < 1) print ' style="display: none;"'; ?>>
 		<!-- List files -->
-		<h3>File Listing: </h3>
-		<table class="list_table">
-			<tr>
-				<th><span>Type</span></th>
-				<th><span>File</span> title</th>
-				<th><span>Size</span></th>
-				<th><span>Filename</span> / URL</th>
-				<th style="text-align: center;" colspan="2"><span>Position</span></th>
+		<table class="table <?php if($adminPageAccessPermissions->updateContent) { print 'is-sortable'; } ?> table--full js-ajax-sortable">
+			<thead>
+				<tr>
+					<th>File title</th>
+					<th>Type</th>
+					<th>Size</th>
+					<th>Filename / URL</th>
 <?php
 			if ($adminPageAccessPermissions->deleteContent) {
 ?>
-				<th class="empty"></th>
+				<th class="centered">Delete</th>
 <?php
 			}
 ?>
-			</tr>
+				</tr>
+			</thead>
 		<tbody id="fileList">
 <?php
 		foreach ($allFiles as $index => $fileItem) {
@@ -1096,49 +1086,33 @@
 				$extension = $fileItem->getURLExtension();
 			}
 ?>
-			<tr id="file<?php print $fileItem->id;?>">
-				<td class="generic_row"><?php if ($extension != '') { ?><img class="extension_img" alt="<?php print $extension;?>" src="<?php print PROTOCOL . CC_DOMAIN . $fileItem->getFileIcon('/jadu/images/file_type_icons/'); ?>" /> <span><?php print $extension;?></span><?php } else { print '&nbsp;'; } ?></td>
+			<tr id="file<?php print $fileItem->id;?>" data-content="file_<?php print $fileItem->id; ?>">
 <?php
 			if ($adminPageAccessPermissions->updateContent) {
 ?>
-				<td class="generic_row_link"><span><a href="./websection_downloads.php?downloadID=<?php print $download->id; ?>&amp;fileID=<?php print $fileItem->id; ?>">
-				<?php print encodeHtml($fileItem->title);?></a>
-                <!--include file for copy to clipboard button-->
-                	<?php if (file_exists(JADU_HOME . "/custom/fordham_websection_downloads_custom.php")) {
+				<td class="js-download-title"><span><a href="./websection_downloads.php?downloadID=<?php print $download->id; ?>&amp;fileID=<?php print $fileItem->id; ?>"><?php print encodeHtml($fileItem->title);?></a>
+ <!--include file for copy to clipboard button-->
+                        <?php if (file_exists(JADU_HOME . "/custom/fordham_websection_downloads_custom.php")) {
                               include("custom/fordham_websection_downloads_custom.php");}
-					 ?>
-                
-                </span>
-             
-                </td>
+                                         ?>
+</span></td>
 <?php
 			}
 			else {
 ?>
-				<td class="generic_row"><span><?php print encodeHtml($fileItem->title);?></span></td>
+				<td><span>..<?php print encodeHtml($fileItem->title);?>
+
+                         <!--include file for copy to clipboard button-->
+                	<?php if (file_exists(JADU_HOME . "/custom/fordham_websection_downloads_custom.php")) {
+                              include("custom/fordham_websection_downloads_custom.php");}
+					 ?>
+</span></td>
 <?php
 			}
 ?>
-				<td class="generic_row"><span><?php print $fileItem->getHumanReadableSize();?></span></td>
-				<td class="generic_row"><span><?php print encodeHtml($filename);?></span></td>
-				<td class="position_up">
-<?php
-				if ($index+1 > 1) {
-?>
-					<a href="<?php print modifyRequestParameters('moveFileID='.$fileItem->id.'&move=up&statusMessage=&message=&fileID=&viewFile='); ?>" title="Move up"><span>Move up</span></a>
-<?php
-				}
-?>
-				</td>
-				<td class="position_down">
-<?php
-				if ($index+1 < $numFiles) {
-?>
-					<a href="<?php print modifyRequestParameters('moveFileID='.$fileItem->id.'&move=down&statusMessage=&message=&fileID=&viewFile='); ?>" title="Move down"><span>Move down</span></a>
-<?php
-				}
-?>
-				</td>
+				<td><?php if ($extension != '') { ?><span><?php print $extension;?></span><?php } else { print '&nbsp;'; } ?></td>
+				<td><span><?php print $fileItem->getHumanReadableSize();?></span></td>
+				<td><span><?php print encodeHtml($filename);?></span></td>
 <?php
 			if ($adminPageAccessPermissions->deleteContent) {
 ?>
@@ -1152,22 +1126,22 @@
 ?>
 		</tbody>
 		<tfoot>
-			<tr class="list_table_finish">
-				<td class="table_finish_curve" colspan="6">
+			<tr>
+				<td class="table__actions" colspan="4">
 <?php
 			if ($adminPageAccessPermissions->createContent) {
 ?>
-					<input type="button" class="btn interimButton" name="uploadShow" value="Upload new file" onclick="<?php if ($file->id == -1) print 'viewFileFunction();'; else print 'clearFile();';?>">
+				<button type="button" class="btn" name="uploadShow" onclick="<?php if ($file->id == -1) print 'viewFileFunction();'; else print 'clearFile();';?>">Upload new file</button>
 <?php
 				if (isset($excludedFieldList) && !in_array('linkShow', $excludedFieldList)) {
 ?>
 					&nbsp;
-					<input type="button" class="btn interimButton" name="linkShow" value="New Link to File" onclick="<?php if ($file->id == -1) print 'viewLinkFunction();'; else print 'clearLink();';?>">
+					<button type="button" class="btn" name="linkShow" onclick="<?php if ($file->id == -1) print 'viewLinkFunction();'; else print 'clearLink();';?>">New Link to File</button>
 <?php
 				}
 ?>
 					&nbsp;
-					<input id="dropButton" style="display:none;" type="button" class="btn interimButton" name="dropboxShow" value="Drop in new files" onclick="$('dropbox').style.display = 'block'; return false;" >
+					<button type="button" id="dropButton"  class="btn" name="dropboxShow" onclick="$('dropbox').style.display = 'block'; return false;" >Drop in new files</button>
 <?php
 			}
 ?>
@@ -1176,8 +1150,8 @@
 <?php
 			if ($adminPageAccessPermissions->deleteContent) {
 ?>
-				<td>
-					<input type="submit" class="btn interimButton" value="Delete" name="deleteFiles" onClick="return confirmDeleteSelected('deleteID[]');">
+				<td class="table__actions centered">
+					<button class="btn btn--danger" name="deleteFiles" onClick="return confirmDeleteSelected('deleteID[]');">Delete</button>
 				</td>
 <?php
 			}
@@ -1185,30 +1159,44 @@
 			</tr>
 		</tfoot>
 		</table>
-		</div>
-		<div id="noFilesArea" class="not_yet"<?php if ($numFiles > 0) print ' style="display: none;"'; ?>>
-			<h3>There are no files assigned to this download</h3>
+	</div>
+
+	<table id="noFilesArea" class="table table--full<?php if ($numFiles > 0) print ' hide'; ?>">
+		<thead>
+			<tr>
+				<th>File title</th>
+				<th>Type</th>
+				<th>Size</th>
+				<th>Filename / URL</th>
+				<td></td>
+			</tr>
+		</thead>
+		<tbody>
+			<tr>
+				<td class="no-results" colspan="99">
+					<div class="no-results__message">
+						<p>There are no files attached to this download</p>
+					</div>
 <?php
 		if ($adminPageAccessPermissions->createContent) {
 ?>
-			<p>
-				<input type="button" class="btn interimButton" name="uploadShow" value="Upload New File" onclick="<?php if ($file->id == -1) print 'viewFileFunction();'; else print 'clearFile();';?>">
+					<button type="button" class="btn btn--primary no-results__action" name="uploadShow" onclick="<?php if ($file->id == -1) print 'viewFileFunction();'; else print 'clearFile();';?>">Upload New File</button>
 <?php
 				if (isset($excludedFieldList) && !in_array('linkShow', $excludedFieldList)) {
 ?>
-					&nbsp;
-					<input type="button" class="btn interimButton" name="linkShow" value="New Link to File" onclick="<?php if ($file->id == -1) print 'viewLinkFunction();'; else print 'clearLink();';?>">
+					<button type="button" class="btn btn--primary no-results__action" name="linkShow" onclick="<?php if ($file->id == -1) print 'viewLinkFunction();'; else print 'clearLink();';?>">New Link to File</button>
 <?php
 				}
 ?>
-				<input id="dropButton" type="button" class="btn interimButton" name="dropboxShow" value="Drop in new files" onclick="$('dropbox').style.display = 'block'; return false;" >
-			</p>
+					<button type="button" id="dropButton" class="btn btn--primary no-results__action" name="dropboxShow" onclick="$('dropbox').style.display = 'block'; return false;" >Drop in New Files</button>
 <?php
 		}
 ?>
-		</div>
+				</td>
+			</tr>
+		</tbody>
+	</table>
 	</form>
-
 	<div id="fileArea" style="display: <?php if ($viewFile == 'true') print 'block'; else print 'none'; ?>;">
 <?php
 	if ($retail) {
@@ -1463,58 +1451,48 @@
 
 				var tr = document.createElement('tr');
 				tr.id = 'file'+id;
+<?php
+				if ($adminPageAccessPermissions->updateContent) {
+?>
+					tr.className = 'ui-sortable-handle';
+					tr.setAttribute('data-content', 'file_' + id);
+<?php
+			}
+?>
 				tbody.appendChild(tr);
 
 				var prevTr = tr.previous('tr');
 
-				var td = document.createElement('td');
+				var td1 = document.createElement('td');
 				var td2 = document.createElement('td');
 				var td3 = document.createElement('td');
 				var td4 = document.createElement('td');
-				var td5 = document.createElement('td');
-				var td6 = document.createElement('td');
 
-				tr.appendChild(td);
+				tr.appendChild(td1);
 				tr.appendChild(td2);
 				tr.appendChild(td3);
 				tr.appendChild(td4);
-				tr.appendChild(td5);
-				tr.appendChild(td6);
 
-				td.className = 'generic_row';
-				td3.className = 'generic_row';
-				td4.className = 'generic_row';
-				td5.className = 'position_up';
-				td6.className = 'position_down';
+				td1.className = 'js-download-title';
 
 				var ext = file.name.split('.');
 
 				if (ext.length > 1) {
 					ext = ext[ext.length-1].toUpperCase();
-
-					var img = document.createElement('img');
-					img.className = 'extension_img';
-					img.alt = ext;
-					img.src = '<?php print PROTOCOL . CC_DOMAIN ; ?>'+ '/jadu/images/file_type_icons/' + ext + '.gif';
-
 					var extspan = document.createElement('span');
 					extspan.innerHTML = ext;
 
-					td.appendChild(img);
-					td.appendChild(extspan);
+					td2.appendChild(extspan);
 				}
 
 <?php
 			if ($adminPageAccessPermissions->updateContent) {
 ?>
-				td2.className = 'generic_row_link';
 				var span = document.createElement('a');
 				span.href = './websection_downloads.php?downloadID=<?php print $download->id; ?>&fileID='+id;
 <?php
-			}
-			else {
+			} else {
 ?>
-				td2.className = 'generic_row';
 				var span = document.createElement('span');
 <?php
 			}
@@ -1527,48 +1505,20 @@
 				span2.innerHTML = (file.size/1000) + ' KB';
 				span3.innerHTML = file.name;
 
-				td2.appendChild(span);
+				td1.appendChild(span);
 				td3.appendChild(span2);
 				td4.appendChild(span3);
 
-<?php
-			if ($adminPageAccessPermissions->updateContent) {
-?>
-				if (typeof prevTr != 'undefined') {
-					//'move up' arrow
-					var upArrowAnchor = document.createElement('a');
-					upArrowAnchor.href="<?php print SECURE_JADU_PATH . '/websections/websection_downloads.php?downloadID='.intval($_GET['downloadID']);?>&moveFileID="+id+"&move=up";
-					upArrowAnchor.title="Move up";
-					var upArrowSpan = document.createElement('span');
-					upArrowSpan.innerHTML = "Move up";
-					upArrowAnchor.appendChild(upArrowSpan);
-					td5.appendChild(upArrowAnchor);
 
-					//'move down' arrow for previous row
-					if (prevTr.children(5) !== null) {
-						if (prevTr.children(5).className=='position_down' || prevTr.children(5).className=='generic_row') {
-							prevTr.children(5).className='position_down';
-							var downArrowAnchor = document.createElement('a');
-							var prevId = prevTr.id.replace("file", "");
-							downArrowAnchor.href="<?php print SECURE_JADU_PATH . '/websections/websection_downloads.php?downloadID='.intval($_GET['downloadID']);?>&moveFileID="+prevId+"&move=down";
-							downArrowAnchor.title="Move down";
-							var downArrowSpan = document.createElement('span');
-							downArrowSpan.innerHTML = "Move down";
-							downArrowAnchor.appendChild(downArrowSpan);
-							prevTr.children(5).appendChild(downArrowAnchor);
-						}
-					}
-				}
 <?php
-			}
 			if ($adminPageAccessPermissions->deleteContent) {
 ?>
-				var td7 = document.createElement('td');
-				tr.appendChild(td7);
-				td7.className = 'generic_row_end';
+				var td5 = document.createElement('td');
+				tr.appendChild(td5);
+				td5.className = 'generic_row_end';
 
 				var span4 = document.createElement('span');
-				td7.appendChild(span4);
+				td5.appendChild(span4);
 
 				var input = document.createElement('input');
 				input.className = 'checkbox';
@@ -1588,3 +1538,9 @@
 	}
 	include("../includes/footer.php");
 ?>
+<script type="text/javascript">
+jQuery(document).ready(function() {
+	pulsar.DownloadReorderingUI = new pulsar.DownloadReorderingUI($('html'));
+	pulsar.DownloadReorderingUI.init();
+});
+</script>
