@@ -150,7 +150,6 @@ document.getElementById('player').innerHTML= ('');
 
 <div id="videoModal-1" class="reveal-modal large">
     <div class="modal-content">
-      <h2></h2>
       <div class="flex-video">
 <div class="js-lazyYT"  data-youtube-id="<?php print $videourl ?>" ratio="5:4" data-parameters="rel=0" id="player"></div>
   
