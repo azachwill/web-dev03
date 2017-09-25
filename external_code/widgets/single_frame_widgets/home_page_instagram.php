@@ -2,6 +2,7 @@
 
 <div class="fu_headtext">
 %FU_INSTA_TITLE%
+%FU_INSTA_TITLE2%
 </div>
 
 <div class="fu_viewprograms">
