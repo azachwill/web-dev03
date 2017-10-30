@@ -1,9 +1,10 @@
 --------------------------------------------------------------
 FRONT-END
+This the front-end
 --------------------------------------------------------------
 <?php 
 include_once('websections/JaduHomepageWidgetSettings.php');
-include_once('custom/signpost/CustomSignpostWidgetSettings.php');
+
 
 // fetch all widget settings to later determine cookie list items
 if (isset($_POST['preview'])) {
