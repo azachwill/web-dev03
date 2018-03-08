@@ -1,311 +1,161 @@
-ICAL TO XML CONVERSION SCRIPT:
-<?php
-
-function iCalendarToXML($icalendarData) {
-
-    // Detecting line endings
-    if (strpos($icalendarData,"\r\n")) $lb = "\r\n";
-    elseif (strpos($icalendarData,"\n")) $lb = "\n";
-    else $lb = "\r\n";
-
-    // Splitting up items per line
-    $lines = explode($lb,$icalendarData);
-
-    // Properties can be folded over 2 lines. In this case the second
-    // line will be preceeded by a space or tab.
-    $lines2 = array();
-    foreach($lines as $line) {
-
-        if ($line[0]==" " || $line[0]=="\t") {
-            $lines2[count($lines2)-1].=substr($line,1);
-            continue;
-        }
-
-        $lines2[]=$line;
-
-    }
-
-    $xml = '<?xml version="1.0"?>' . "\n";
-
-    $spaces = 0;
-    foreach($lines2 as $line) {
-
-        $matches = array();
-        // This matches PROPERTYNAME;ATTRIBUTES:VALUE
-        if (preg_match('/^([^:^;]*)(?:;([^:]*))?:(.*)$/',$line,$matches)) {
-            $propertyName = strtoupper($matches[1]);
-            $attributes = $matches[2];
-            $value = $matches[3];
-
-            // If the line was in the format BEGIN:COMPONENT or END:COMPONENT, we need to special case it.
-            if ($propertyName == 'BEGIN') {
-                $xml.=str_repeat(" ",$spaces);
-                $xml.='<' . strtoupper($value) . ">\n";
-                $spaces+=2;
-                continue;
-            } elseif ($propertyName == 'END') {
-                $spaces-=2;
-                $xml.=str_repeat(" ",$spaces);
-                $xml.='</' . strtoupper($value) . ">\n";
-                continue;
-            }
-
-            $xml.=str_repeat(" ",$spaces);
-            $xml.='<' . $propertyName;
-            if ($attributes) {
-                // There can be multiple attributes
-                $attributes = explode(';',$attributes);
-                foreach($attributes as $att) {
-
-                    list($attName,$attValue) = explode('=',$att,2);
-                    $xml.=' ' . $attName . '="' . htmlspecialchars($attValue) . '"';
-
-                }
-            }
-
-            $xml.='>'. htmlspecialchars($value) . '</' . $propertyName . ">\n";
-
-        }
-
-    }
-
-    return $xml;
-
-}
-
-        // create curl resource
-        $ch = curl_init();
-
-        // set url
-        curl_setopt($ch, CURLOPT_URL, "https://www.google.com/calendar/ical/fordham.edu_15ku36e217aahvd5ukh23etdds%40group.calendar.google.com/public/basic.ics");
-
-        //return the transfer as a string
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-
-        // $output contains the output string
-        $output = curl_exec($ch);
-
-        // close curl resource to free up system resources
-        curl_close($ch);
-
-$calendarxml = iCalendarToXML($output);
-
-$pathtoxmlfile = "/var/www/jadu/public_html/xml/calendar.xml";
-
-$myfile = fopen($pathtoxmlfile, "w") or die("Unable to open file!");
-fwrite($myfile, $calendarxml);
-fclose($myfile);
-
-chgrp($pathtoxmlfile,"jadu-www");
-chown($pathtoxmlfile,"jadu");
-chmod($pathtoxmlfile,0755);
-
-?>
-
-
 FRONT-END
----------------------------------------------------------------------------
-R1:
---------------------------------------------------------------------------
+------------------------------------------------------------------
+      <?php 
+$fu_fp_fbtn_1  = "%FU_FP_FBTN_1%"; 
+$fu_fp_fbtn_2  = "%FU_FP_FBTN_2%";
+
+
+//if ( strpos($fu_fp_fbtn_2, "http") == 0){
+//$fu_fp_fbtn_2 = "http://" .$fu_fp_fbtn_2;
+//}
+//echo $fu_fp_fbtn_2;
+
+$feedurl = "%FU_FEEDURL%";
+$feedcachefile = preg_replace('/[^.\w\s\.#]/', '',$feedurl);
+$feedcachefile = str_replace(".","",$feedcachefile);
+$feedcachefile = str_replace("https","",$feedcachefile);
+?>
+<style>
+.events.column{padding:1em;}
+
+.events .column.gray{background-color:#ffffff;color:#8d002a;background:url(/site/styles/img/spotlight-gradient-overlay.png) no-repeat bottom right;padding:1.5em;font-size:100%;}
+
+.events .column.red{background-color:#900028;color:#ffffff;background:url(/site/images/cura_gradient.png) no-repeat bottom right;padding:1.5em;font-size:100%;background-size:cover;}
+.events .column.red a{color:#ffffff;} 
+</style>
+<div class="events">
+    <div class="w_row twelve-hun-max">
+      <h5 class="section-title small-12 columns"><?php $fu_fp_fbtn_1  = "%FU_FP_FBTN_1%"; 
+print $fu_fp_fbtn_1; ?>
+</h5>
+<div class="small-12 large-12 columns">
+
 <?php
-$xml=simplexml_load_file("/var/www/jadu/public_html/xml/calendar.xml") or die("Error: Cannot create object");
+date_default_timezone_set('America/New_York');
+//--------------------------------------------------------------------------
+//convert date/time
+function convthedate($eventDateStr){
+//capture today's date
+$todaysdate= mktime(0, 0, 0, date("m"), date("d"), date("y"));
+$todaysdate= date("Y-m-d", $todaysdate);
+
+$dst = ( date('I', time()) ? "4" : "5"  );  //daylight savings time adjustment
+
+//the event's date
+$date  = date_create($eventDateStr);
+
+$date->modify('-'.$dst .' hour');
+$datecheck = $date->format("Y-m-d");
+
+//is the event date and today's date the same?
+if ($todaysdate == $datecheck) {
+    $eventdate= "Today " .$date->format('\@ h:i A');}
+    else
+    {
+     $eventdate= $date->format('D\, M jS \@ h:i A');
+    }
+if ( strpos ($eventdate, "12:00 AM") ) {
+$eventdate = $date->format('D\, M jS');
+}
+return $eventdate;
+}
+
+$thedatetime = new DateTime;
+//start date for records list
+$thedatetime=$thedatetime->format("Y-m-d\T00:00-0".$dst .":00");
+//-------------------------------------------------------------------------
+
+$temp = "";
+
+$CACHE_FILE_PATH = '/var/www/jadu/public_html/site/custom_scripts/featuredeventscache/fu_fe_' . $feedcachefile . '.txt';
+$url =$feedurl ."/";
+//---------------------------------------
+//Cache and cURL: If cache file is > 1 hr old, cURL for the JSON, else read from the cached file
+            $ENABLE_CACHE = true;
+            $CACHE_TIME_HOURS = 1;
+            
+            if ($ENABLE_CACHE && file_exists($CACHE_FILE_PATH) && (time() - filemtime($CACHE_FILE_PATH) < ($CACHE_TIME_HOURS * 60 * 60 ))) {
+                $xml = @file_get_contents($CACHE_FILE_PATH);
+               
+            } else {
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $url);
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 20);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+
+                $xml = curl_exec($ch);
+                curl_close($ch);
+                    touch(chmod($CACHE_FILE_PATH, 0755));
+                @file_put_contents($CACHE_FILE_PATH,$xml);
+            }
 $i = 0;
-$arr = array();
 
-foreach($xml->children() as $event) {
+$link = "";
 
-$tmp =  $event->DESCRIPTION;
-
-if (strlen($tmp) == 0 ){
-$i = $i;
-
-} else{
-
-$cal_time =  $event->DTSTART;
-$cal_time = "<time>" .date( "D\, M j \@ h:i a", strtotime( $cal_time ) ). "</time>" ;
-
-$cal_sum = "<div class=\"title\">" .$event->SUMMARY ."</div>";
-
-$cal_desc =  $event->DESCRIPTION;
-$cal_desc =  str_replace("\,", ",", $cal_desc);
-$cal_desc =  "<p>" .substr(str_replace("\\n", "<br />", $cal_desc),0,100)."...</p>" ;
-
-$arr[] = $cal .$cal_time ."<br />" .$cal_sum ."<br />" .$cal_desc;
-
-$i=$i+1;
-if ($i==5){break;}
+//----------------------------------------------------------
+// Word count and display for "description"
+function words($text){
+$text = explode(' ', $text);
+$first_15_words = array_slice($text, 0, 15);
+$words= implode(' ', $first_15_words);
+return $words;
 }
+//----------------------------------------------------------
+
+
+$xml = simplexml_load_string($xml, 'SimpleXMLElement', LIBXML_NOCDATA) ;
+
+$fu_xmllen= strlen($xml);
+
+if ($fu_xmllen === 0){
+echo "Please enter a valid RSS Feed URL";
+}else{
+
+for ($i=0; $i<=4; $i++) {
+$fu_febkg = ($i <= 1 ? "small-12 large-20p medium column red" : "small-12 large-20p column gray");
+$fu_felink = ($i <= 1 ? "fu_link_red" : "fu_link_gray");
+
+
+ if(!empty($xml->channel->item[$i]->link) || isset($xml->channel->item[$i]->link)){
+     
+$link=  "<a href='". $xml->channel->item[$i]->link ."'>";
+   }
+
+
+$temp = $temp ."<div class='".$fu_febkg."'>";
+
+   if(!empty($xml->channel->item[$i]->pubDate) || isset($xml->channel->item[$i]->pubDate)){
+    $temp = $temp ."<div class='daytime'>" .convthedate($xml->channel->item[$i]->pubDate). "</div>";
+   }
+   if(!empty($xml->channel->item[$i]->title) || isset($xml->channel->item[$i]->title)){
+     $temp= $temp . "<div class='summary ".$fu_felink."'>".$link. $xml->channel->item[$i]->title ."</a></div>";
+   }
+   if (!empty($xml->channel->item[$i]->description) || isset($xml->channel->item[$i]->description)){
+     $temp= $temp . "<div class='description ".$fu_felink."'>" . words($xml->channel->item[$i]->description) ." <nobr><em><a href='". $xml->channel->item[$i]->link ."' title='".$xml->channel->item[$i]->title ."'>...more >></em></nobr></a></div>";
+   }
+   $featureditems[$i] = $temp ."</div>";
+   $temp = "";
 }
 
-$arr = array_reverse($arr);
+}//end if $fu_xmllen statement 
 
-?>
-
-<section class="events">
-		<div class="w_row twelve-hun-max">
-			<h5 class="section-title small-12 columns"><?php $fu_fp_fbtn_1  = "%FU_FP_FBTN_1%"; 
-print $fu_fp_fbtn_1;
-?></h5>
-
-
-<div class="small-12 large-20p medium column red">
-<?php echo $arr[0]; ?>
-</div>
-
-<div class="small-12 large-20p medium column red">
-<?php echo $arr[1]; ?>
-</div>
-
-<div class="small-12 large-20p column gray">
-<?php echo $arr[2]; ?>
-</div>
-
-<div class="small-12 large-20p column gray">
-<?php echo $arr[3]; ?>
-</div>
-
-<div class="small-12 large-20p column gray">
-<?php echo $arr[4]; ?>
-</div>
-
-<a class="section-link" href="<?php $fu_fp_fbtn_2  = "%FU_FP_FBTN_2%";
-print $fu_fp_fbtn_2;
-?>">VIEW ALL EVENTS</a>
-		</div>
-	</section>
-
-	
-	--------------------------------------------------------------
-	R0:
--------------------------------------------------------------------
-
-<?php	
-include_once('websections/JaduHomepageWidgetSettings.php');
-include_once('custom/signpost/CustomSignpostWidgetSettings.php');
-
-// fetch all widget settings to later determine cookie list items
-if (isset($_POST['preview'])) {
-	$newSettings = array();
-
-	$j = 0;
-	
-	if (!empty($settings)) {
-		foreach ($settings as $name => $value) {
-			$newSettings[$j] = new stdClass();
-			$newSettings[$j]->name = $name;
-			$newSettings[$j]->value = $value;
-			
-			$newSettings[$j]->value= str_replace('_apos_', "'", $newSettings[$j]->value);
-			$newSettings[$j]->value = str_replace('_amp_', "&", $newSettings[$j]->value);
-			$newSettings[$j]->value = str_replace('_eq_', '=', $newSettings[$j]->value);
-			$newSettings[$j]->value = str_replace('_hash_', '#', $newSettings[$j]->value);
-			$newSettings[$j]->value = str_replace('_ques_', '?', $newSettings[$j]->value);
-			$newSettings[$j]->value = str_replace('_perc_', '%', $newSettings[$j]->value);
-			$newSetting->value = stripslashes($newSetting->value);
-			
-			$j++;
-		}
-	}
-	
-	$settings = $newSettings;		
+//print out 
+for ($y=0; $y<=4; $y++){
+    echo $featureditems[$y];
 }
-else {
-	if (isset($widget) && !is_array($widget)) {
-		if (isset($_POST['homepageContent'])) {
-			$settings = array();
-			foreach ($widgetSettings[$widget->id] as $setting) {
-				$newSetting = new WidgetSetting();
-				$newSetting->name = $setting->name;
-				$newSetting->value = $setting->value;
-				
-				$newSetting->value= str_replace('_apos_', "'", $newSetting->value);
-				$newSetting->value = str_replace('_amp_', "&", $newSetting->value);
-				$newSetting->value = str_replace('_eq_', '=', $newSetting->value);
-				$newSetting->value = str_replace('_hash_', '#', $newSetting->value);
-				$newSetting->value = str_replace('_ques_', '?', $newSetting->value);
-				$newSetting->value = str_replace('_perc_', '%', $newSetting->value);
-				
-				$settings[] = $newSetting;
-			}
-		}
-		else if (isset($_POST['action']) && $_POST['action'] == 'getPreviews') {
-			$settings = getAllSettingsForHomepageWidget($aWidget->id);
-		}
-		else if(isset($signpost) && $signpost->id > 0) {
-			$settings = getAllSignpostWidgetSettingsBySignpostID($signpost->id);
-		}
-		else {
-			$settings = getAllSettingsForHomepageWidget($widget->id, true);
-		}
-	}
-	else {
-		if (isset($_POST['homepageContent'])) {
-			$settings = array();
-			foreach ($widgetSettings[$stack->id] as $setting) {
-				$newSetting = new WidgetSetting();
-				$newSetting->name = $setting->name;
-				$newSetting->value = $setting->value;
-				$settings[] = $newSetting;
-			}
-		}
-		else if (isset($_POST['getPreviews'])) {
-			$settings = getAllSettingsForHomepageWidget($aWidget->id);
-		}
-		else {
-			$settings = getAllSettingsForHomepageWidget($stack->id, true);
-		}
-	}
-}
-?>
-<section class="events">
-		<div class="row twelve-hun-max">
-			<h5 class="section-title small-12 columns"><?php $fu_fp_fbtn_1  = "%FU_FP_FBTN_1%"; 
-print $fu_fp_fbtn_1;
-?></h5>
+    ?>
 
-
-<div class="small-12 large-20p medium column red">
-<time>%FU_FP_DDT_1%</time>
-<div class="title">%FU_FP_TITLE_1%</div>
-<p>%FU_FP_DESC_1%</p>
 </div>
-
-<div class="small-12 large-20p medium column red">
-<time>%FU_FP_DDT_2%</time>
-<div class="title">%FU_FP_TITLE_2%</div>
-<p>%FU_FP_DESC_2%</p>
-</div>
-
-<div class="small-12 large-20p column gray">
-<time>%FU_FP_DDT_3%</time>
-<div class="title">%FU_FP_TITLE_3%</div>
-<p>%FU_FP_DESC_3%</p>
-</div>
-
-<div class="small-12 large-20p column gray">
-<time>%FU_FP_DDT_4%</time>
-<div class="title">%FU_FP_TITLE_4%</div>
-<p>%FU_FP_DESC_4%</p>
-</div>
-
-<div class="small-12 large-20p column gray">
-<time>%FU_FP_DDT_5%</time>
-<div class="title">%FU_FP_TITLE_5%</div>
-<p>%FU_FP_DESC_5%</p>
+<a class="section-link" href="%FU_FP_FBTN_2%">VIEW ALL EVENTS</a>
+        </div>
 </div>
 
 
-<a class="section-link" href="<?php $fu_fp_fbtn_2  = "%FU_FP_FBTN_2%";
-print $fu_fp_fbtn_2;
-?>">VIEW ALL EVENTS</a>
-		</div>
-	</section>
 
-	
---------------------------------------------------------------------
+--------------------------------------------------------
 SETTINGS
---------------------------------------------------------------------
-	
+--------------------------------------------------------
 <table class="form_table" id="tbl_widget_content"
 <tr>
 <td class="label_cell">Featured Event Name*</td>
@@ -317,246 +167,35 @@ SETTINGS
 <td class="data_cell"><input id="fu_fp_fbtn_2" value="" size="45" type="text" />
 </td></tr>
 
-<tr><td class="data_cell" colspan="2" style="text-align:left;">First Event</td></tr>
-<tr><td class="label_cell">Day/Date/Time*</td>
-<td class="data_cell"><input id="fu_fp_ddt_1" value="" size="45" type="text" />
-</td></tr>
 <tr>
-<td class="label_cell">Title*</td>
-<td class="data_cell"><input id="fu_fp_title_1" value="" size="45" type="text" />
+<td class="label_cell" style="text-align:left;">Enter Feed URL:*</td>
+<td class="data_cell"><input type="text" id="fu_feedurl" value="" size="45"/>
 </td></tr>
-
-<tr><td class="label_cell">Description*</td>
-<td class="data_cell"><input id="fu_fp_desc_1" value="" size="45" type="text" />
-</td></tr>
-
-<tr>
-<td class="label_cell">Link</td>
-<td class="data_cell"><input id="fu_fp_link_1" value="" size="45" type="text" />
-</td></tr>
-
-<tr><td class="data_cell" colspan="2">Second Event</td></tr>
-<tr><td class="label_cell">Day/Date/Time*</td>
-<td class="data_cell"><input id="fu_fp_ddt_2" value="" size="45" type="text" />
-</td></tr>
-<tr>
-<td class="label_cell">Title*</td>
-<td class="data_cell"><input id="fu_fp_title_2" value="" size="45" type="text" />
-</td></tr>
-
-<tr>
-<td class="label_cell">Description*</td>
-<td class="data_cell"><input id="fu_fp_desc_2" value="" size="45" type="text" />
-</td></tr>
-
-<tr>
-<td class="label_cell">Link</td>
-<td class="data_cell"><input id="fu_fp_link_2" value="" size="45" type="text" />
-</td></tr>
-
-<tr><td class="data_cell" colspan="2">Third Event</td></tr>
-<tr><td class="label_cell">Day/Date/Time*</td>
-<td class="data_cell"><input id="fu_fp_ddt_3" value="" size="45" type="text" />
-</td></tr>
-<tr>
-<td class="label_cell">Title*</td>
-<td class="data_cell"><input id="fu_fp_title_3" value="" size="45" type="text" />
-</td></tr>
-
-<tr>
-<td class="label_cell">Description*</td>
-<td class="data_cell"><input id="fu_fp_desc_3" value="" size="45" type="text" />
-</td></tr>
-
-<tr>
-<td class="label_cell">Link</td>
-<td class="data_cell"><input id="fu_fp_link_3" value="" size="45" type="text" />
-</td></tr>
-
-<tr><td class="data_cell" colspan="2">Fourth Event</td></tr>
-<tr><td class="label_cell">Day/Date/Time*</td>
-<td class="data_cell"><input id="fu_fp_ddt_4" value="" size="45" type="text" />
-</td></tr>
-<tr>
-<td class="label_cell">Title*</td>
-<td class="data_cell"><input id="fu_fp_title_4" value="" size="45" type="text" />
-</td></tr>
-
-<tr>
-<td class="label_cell">Description*</td>
-<td class="data_cell"><input id="fu_fp_desc_4" value="" size="45" type="text" />
-</td></tr>
-
-<tr>
-<td class="label_cell">Link</td>
-<td class="data_cell"><input id="fu_fp_link_4" value="" size="45" type="text" />
-</td></tr>
-
-<tr><td class="data_cell" colspan="2">Fifth Event</td></tr>
-<tr><td class="label_cell">Day/Date/Time*</td>
-<td class="data_cell"><input id="fu_fp_ddt_5" value="" size="45" type="text" />
-</td></tr>
-<tr>
-<td class="label_cell">Title*</td>
-<td class="data_cell"><input id="fu_fp_title_5" value="" size="45" type="text" />
-</td></tr>
-
-<tr>
-<td class="label_cell">Description*</td>
-<td class="data_cell"><input id="fu_fp_desc_5" value="" size="45" type="text" />
-</td></tr>
-
-<tr>
-<td class="label_cell">Link</td>
-<td class="data_cell"><input id="fu_fp_link_5" value="" size="45" type="text" />
-</td></tr></table>
+</table>
 
 
---------------------------------------------------------------------
-SETTINGS JAVASCRIPT
---------------------------------------------------------------------
-var currentLinkEdit = -1;
-var widgetLinks = new Array();
-var oldsave = $('saveWidgetProperty').onclick;
-
-if (typeof $('saveWidgetProperty').onclick != 'function') {
-    $('saveWidgetProperty').onclick = commitWidgetLinks;
-}
-else {
-    $('saveWidgetProperty').onclick = function () {
-        if (commitWidgetLinks()) {
-            oldsave();
-        }
-    }
-}
-
-if (typeof widgetItems[activeWidget].settings['feature_image'] != 'undefined' && widgetItems[activeWidget].settings['feature_image'] != '') {
-    $('img_srci').src = PROTOCOL + DOMAIN + '/images/' + widgetItems[activeWidget].settings['feature_image'];
-}
-
+--------------------------------------------------------
+FRONT-END JAVASCRIPT
+--------------------------------------------------------
 function commitWidgetLinks ()
 {
  var fu_fp_fbtn_1 = $('fu_fp_fbtn_1').value; 
     if (fu_fp_fbtn_1 == '') {
         alert('Please enter the Event Name');
         return false;
-    }
-	
-	var fu_fp_fbtn_2 = $('fu_fp_fbtn_2').value; 
-    if (fu_fp_fbtn_2 == '') {
-        alert('Please enter the View All Events link URL');
-        return false;
-    }
-    var fu_fp_ddt_1 = $('fu_fp_ddt_1').value; 
-    if (fu_fp_ddt_1 == '') {
-        alert('Please enter a Day/Date/Time for Event 1.');
-        return false;
-    }
-	
-	 var fu_fp_title_1 = $('fu_fp_title_1').value; 
-    if (fu_fp_title_1 == '') {
-        alert('Please enter a title for Event 1.');
-        return false;
-    }
-	var fu_fp_desc_1 = $('fu_fp_desc_1').value; 
-    if (fu_fp_desc_1 == '') {
-        alert('Please enter a Description for Event 1.');
-        return false;
-    }
-	
-	var fu_fp_ddt_2 = $('fu_fp_ddt_2').value; 
-    if (fu_fp_ddt_2 == '') {
-        alert('Please enter a Day/Date/Time for Event 2.');
-        return false;
-    }	
-	 var fu_fp_title_2 = $('fu_fp_title_2').value; 
-    if (fu_fp_title_2 == '') {
-        alert('Please enter a title for Event 2.');
-        return false;
-    }
-	var fu_fp_desc_2 = $('fu_fp_desc_2').value; 
-    if (fu_fp_desc_2 == '') {
-        alert('Please enter a Description for Event 2.');
-        return false;
-    }
-	
-	var fu_fp_ddt_3 = $('fu_fp_ddt_3').value; 
-    if (fu_fp_ddt_3 == '') {
-        alert('Please enter a Day/Date/Time for Event 3.');
-        return false;
-    }	
-	 var fu_fp_title_3 = $('fu_fp_title_3').value; 
-    if (fu_fp_title_3 == '') {
-        alert('Please enter a title for Event 3.');
-        return false;
-    }
-	var fu_fp_desc_3 = $('fu_fp_desc_3').value; 
-    if (fu_fp_desc_3 == '') {
-        alert('Please enter a Description for Event 3.');
-        return false;
-    }
-	
-var fu_fp_ddt_4 = $('fu_fp_ddt_4').value; 
-    if (fu_fp_ddt_4 == '') {
-        alert('Please enter a Day/Date/Time for Event 4.');
-        return false;
-    }	
-	 var fu_fp_title_4 = $('fu_fp_title_4').value; 
-    if (fu_fp_title_4 == '') {
-        alert('Please enter a title for Event 4.');
-        return false;
-    }
-	var fu_fp_desc_4 = $('fu_fp_desc_4').value; 
-    if (fu_fp_desc_4 == '') {
-        alert('Please enter a Description for Event 4.');
-        return false;
-    }
-var fu_fp_ddt_5 = $('fu_fp_ddt_5').value; 
-    if (fu_fp_ddt_5 == '') {
-        alert('Please enter a Day/Date/Time for Event 5.');
-        return false;
-    }	
-	 var fu_fp_title_5 = $('fu_fp_title_5').value; 
-    if (fu_fp_title_5 == '') {
-        alert('Please enter a title for Event 5.');
-        return false;
-    }
-	var fu_fp_desc_5 = $('fu_fp_desc_5').value; 
-    if (fu_fp_desc_5 == '') {
-        alert('Please enter a Description for Event 5.');
-        return false;
-    }
-  
-    widgetItems[activeWidget].settings = new Object();
-    widgetItems[activeWidget].settings['fu_fp_fbtn_1'] = fu_fp_fbtn_1;
-
-widgetItems[activeWidget].settings['fu_fp_ddt_1'] = fu_fp_ddt_1;
-	widgetItems[activeWidget].settings['fu_fp_title_1'] = fu_fp_title_1;
-	widgetItems[activeWidget].settings['fu_fp_desc_1'] = fu_fp_desc_1;
-	widgetItems[activeWidget].settings['fu_fp_link_1'] = fu_fp_link_1;
-	
-	widgetItems[activeWidget].settings['fu_fp_fbtn_2'] = fu_fp_fbtn_2;
-	widgetItems[activeWidget].settings['fu_fp_ddt_2'] = fu_fp_ddt_2;
-	widgetItems[activeWidget].settings['fu_fp_title_2'] = fu_fp_title_2;
-	widgetItems[activeWidget].settings['fu_fp_desc_2'] = fu_fp_desc_2;
-	widgetItems[activeWidget].settings['fu_fp_link_2'] = fu_fp_link_2;
-	
-	widgetItems[activeWidget].settings['fu_fp_ddt_3'] = fu_fp_ddt_3;
-	widgetItems[activeWidget].settings['fu_fp_title_3'] = fu_fp_title_3;
-	widgetItems[activeWidget].settings['fu_fp_desc_3'] = fu_fp_desc_3;
-	widgetItems[activeWidget].settings['fu_fp_link_3'] = fu_fp_link_3;
-	
-	widgetItems[activeWidget].settings['fu_fp_ddt_4'] = fu_fp_ddt_4;
-	widgetItems[activeWidget].settings['fu_fp_title_4'] = fu_fp_title_4;
-	widgetItems[activeWidget].settings['fu_fp_desc_4'] = fu_fp_desc_4;
-	widgetItems[activeWidget].settings['fu_fp_link_4'] = fu_fp_link_4;
-	
-	widgetItems[activeWidget].settings['fu_fp_ddt_5'] = fu_fp_ddt_5;
-	widgetItems[activeWidget].settings['fu_fp_title_5'] = fu_fp_title_5;
-	widgetItems[activeWidget].settings['fu_fp_desc_5'] = fu_fp_desc_5;
-	widgetItems[activeWidget].settings['fu_fp_link_5'] = fu_fp_link_5;
-   
-
-    return true;
 }
-	
+{
+ var fu_feedurl = $('fu_feedurl').value; 
+    if (fu_feedurl == '') {
+        alert('Please enter the Feed URL ');
+        return false;
+}
+
+widgetItems[activeWidget].settings = new Object();
+widgetItems[activeWidget].settings['fu_fp_fbtn_1'] = fu_fp_fbtn_1;
+widgetItems[activeWidget].settings['fu_feedurl;'] = fu_feedurl;
+
+return true;
+}
+
+
