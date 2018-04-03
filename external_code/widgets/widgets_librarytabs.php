@@ -1,81 +1,115 @@
-
-
+-----------------------------
 FRONT-END
----------------------------------------------------------------------------
-<link rel="stylesheet" href="/site/custom_css/jquery-ui.css">
-<link rel="stylesheet" href="/site/custom_css/jquery-ui.structure.min.css">
-<link rel="stylesheet" href="/site/custom_css/jquery-ui.theme.min.css">
+-----------------------------
 
-<script src="/site/javascript/jquery.min.js"></script>
+<div id="fu_container">
+<div id="jumbotron" style="background-image:url('/images/bg4_1.jpg');background-repeat: no-repeat;">
+<link rel="stylesheet" href="/site/custom_css/jquery-ui.min.css">
+<link rel="stylesheet" href="/site/custom_css/jquery-ui.theme.min.css">
+<script src="/site/javascript/fordham/jquery-1.12.4.min.js"></script>
+  <script src="/site/javascript/fordham/jquery-ui.min.js"></script>
+<link rel="stylesheet" href="/site/custom_css/sirsiform.css">
+<?php 
+//include_once('websections/JaduHomepageWidgetSettings.php');
+//include_once('custom/mobile_detect.php');
+//$detect = new Mobile_Detect;
+
+//---------------------------------------------------
+//Get the Tab Head/Headline
+function getTabHead($fu_id,$fu_page){
+$fu_tab_head = "";
+
+$mainDB = Jadu_Service_Container::getInstance()->getMainDB();
+                $query = "SELECT * FROM JaduDocumentPages where documentID =".intval($fu_id) ." AND pageNumber =" . intval($fu_page);
+                $result = $mainDB->Execute($query);
+
+if (!$result->EOF) {
+ $fu_tab_head  = $result->fields(title);
+} else {
+$fu_tab_head = "";
+}
+return $fu_tab_head;
+}
+//-------------------------------------------------------
+//Get the description/content
+function getTabData($fu_id,$fu_page){
+$fu_response = "";
+
+$mainDB = Jadu_Service_Container::getInstance()->getMainDB();
+                $query = "SELECT * FROM JaduDocumentPages where documentID =".intval($fu_id) ." AND pageNumber =" . intval($fu_page);
+                $result = $mainDB->Execute($query);
+
+if (!$result->EOF) {
+        $fu_response  = $result->fields(description);
+} else {
+$fu_response = "Invalid Title";
+}
+return $fu_response;
+}
+//-------------------------------------------------------
+$futabhead1 =  getTabHead(9623,1);
+$futabcontent1 = getTabData(9623,1);
+$futabhead1 = '<li><a href="#tabs-1">'.$futabhead1.'</a></li>';
+
+$futabhead2 = getTabHead(9623,2);
+$futabcontent2 = getTabData(9623,2);
+
+if ( $futabhead2 ){
+$futabhead2 = '<li><a href="#tabs-2">'.$futabhead2.'</a></li>';
+$futabcontent2 =  '<div id="tabs-2">'.$futabcontent2.'</div>';
+}else{
+  $futabhead2 = "";
+  $futabcontent2 = "";
+}
+
+$futabhead3 = getTabHead(9623,3);
+$futabcontent3 = getTabData(9623,3);
+
+if ( $futabhead3 ){
+$futabhead3 = '<li><a href="#tabs-3">'.$futabhead3.'</a></li>';
+$futabcontent3 = '<div id="tabs-3">'.$futabcontent3.'</div>';
+}else{
+  $futabhead3 = "";
+  $futabcontent3 = "";
+}
+
+$futabhead4 = getTabHead(9623,4);
+$futabcontent4 = getTabData(9623,4);
+
+if ( $futabhead4 ){
+$futabhead4 = '<li><a href="#tabs-4">'.$futabhead4.'</a></li>';
+$futabcontent4 = '<div id="tabs-4">'.$futabcontent4.'</div>';
+}else{
+  $futabhead4 = "";
+  $futabcontent4 = "";
+}
+
+$futabhead5 = getTabHead(9623,6);
+$futabcontent5 = getTabData(9623,6);
+
+if ( $futabhead5 ){
+$futabhead5 = '<li><a href="#tabs-5">'.$futabhead5.'</a></li>';
+$futabcontent5 = '<div id="tabs-5">'.$futabcontent5.'</div>';
+}else{
+  $futabhead5 = "";
+  $futabcontent5 = "";
+}
+
+$fu_hours_head = getTabHead(9623,5);
+$fuhourscontent = getTabData(9623,5);
+?>
+
+<div id="tabs_full">
 <script>
     var $i = jQuery.noConflict();
 </script> 
 
-<?php	
-include_once('websections/JaduHomepageWidgetSettings.php');
-
-$futabhead1 = "%FU_TAB_HEAD_1%";
-$futabcontent1 = "%FU_TAB_CONTENT_1%";
-
-
-$futabhead2 = "%FU_TAB_HEAD_2%";
-$futabcontent2 = "%FU_TAB_CONTENT_2%";
-
-if ( $futabhead2 ){
-$futabhead2 = '<li><a href="#tabs-2">%FU_TAB_HEAD_2%</a></li>';
-$futabcontent2 = '<div id="tabs-2">%FU_TAB_CONTENT_2%</div>';
-}else{
-	$futabhead2 = "";
-	$futabcontent2 = "";
-}
-
-$futabhead3 = "%FU_TAB_HEAD_3%";
-$futabcontent3 = "%FU_TAB_CONTENT_3%";
-
-if ( $futabhead3 ){
-$futabhead3 = '<li><a href="#tabs-3">%FU_TAB_HEAD_3%</a></li>';
-$futabcontent3 = '<div id="tabs-3">%FU_TAB_CONTENT_3%</div>';
-}else{
-	$futabhead3 = "";
-	$futabcontent3 = "";
-}
-
-$futabhead4 = "%FU_TAB_HEAD_4%";
-$futabcontent4 = "%FU_TAB_CONTENT_4%";
-
-if ( $futabhead4 ){
-$futabhead4 = '<li><a href="#tabs-4">%FU_TAB_HEAD_4%</a></li>';
-$futabcontent4 = '<div id="tabs-4">%FU_TAB_CONTENT_4%</div>';
-}else{
-	$futabhead4 = "";
-	$futabcontent4 = "";
-}
-
-$futabhead5 = "%FU_TAB_HEAD_5%";
-$futabcontent5 = "%FU_TAB_CONTENT_5%";
-
-if ( $futabhead5 ){
-$futabhead5 = '<li><a href="#tabs-5">%FU_TAB_HEAD_5%</a></li>';
-$futabcontent5 = '<div id="tabs-5">%FU_TAB_CONTENT_5%</div>';
-}else{
-	$futabhead5 = "";
-	$futabcontent5 = "";
-}
-
-$fuhourscontent = '%FU_HOURS_CONTENT%';
-?>
-
-
-<div id="container">
-<div id="jumbotron" style="background-image:url('http://www.library.fordham.edu/images/bg4.jpg');">
-
-
 <div class="col-md-8" style="padding:10px;">
         <div style="margin:10px;">
-				
+        
 <div id="tabs">
   <ul>
-    <li><a href="#tabs-1">%FU_TAB_HEAD_1%</a></li>
+   <?php echo $futabhead1 ?>
     <?php echo $futabhead2 ?>
     <?php echo $futabhead3 ?>
     <?php echo $futabhead4 ?>
@@ -94,139 +128,65 @@ $fuhourscontent = '%FU_HOURS_CONTENT%';
 
 <?php echo $futabcontent5 ?>
 
-				</div><!--tabs-->
-			</div><!--col-md-8-->
+        </div><!--tabs-->
+      </div><!-- end col-md-8--> 
+    </div>
+</div><!--end tabs_full-->
 
+<div id="tabs_collapsed"><!--for desktop display < 768px wide -->
+ <script>
+var $i = jQuery.noConflict();
+$i(function() {
+    $i( "#accordion" ).accordion({
+  active: 5
+  });
+})
+ </script> 
+<div id="accordion">
+<h3><?php echo $futabhead1 ?></h3>
+ <div style="height:10em;min-height:10em;">
+    <p><?php echo $futabcontent1 ?></p>
+  </div>
+  
+<h3><?php echo $futabhead2 ?></h3>
+  <div style="height:10em;min-height:25em;">
+   <?php echo $futabcontent2 ?>
+ </div>
+  
+<h3><?php echo $futabhead3 ?></h3>
+  <div style="height:10em;min-height:10em;">
+<style>
+ .ui-widget button
+{color:#000000;background-color:#ffffff;padding:.25em .75em;border:none;}
+</style>
+ <?php echo $futabcontent3 ?>
+  </div>
+  
+<h3><?php echo $futabhead4 ?></h3>
+  <div style="height:6em;min-height:6em;">  
+ <?php echo $futabcontent4 ?>
+  </div>
+</div>
+</div><!--end tabs_collapsed, desktop < 768px wide -->
 
-        </div>
-
-      <div class="col-md-4" style="background-color:#900028; padding:20px 10px; color:#fff; min-height:400px;">
+      <div id="fu_libraryhours" class="col-md-4 fu_libraryhours_outerbox">
+         <?php echo $fu_hours_head ?>
           <?php echo $fuhourscontent ?> 
        </div>
   <div style="clear:both;"></div>
-</div><!--jumbotron-->
-</div><!--container-->
-
 
 </div>
+</div>
 
-  <script src="/site/javascript/jquery-ui.min.js"></script>
-
-	
-	--------------------------------------------------------------
+-----------------------------
 FRONT-END JAVASCRIPT
--------------------------------------------------------------------
+-----------------------------
 
 if (document.getElementById('tabs') ){
 
    $i(document).ready(function() {
    $i( "#tabs" ).tabs();
 });
-
 }
 
 
-	--------------------------------------------------------------
-SETTINGS 
--------------------------------------------------------------------
-<table class="form_table" id="tbl_widget_content">
-<tr><td class="data_cell" colspan="2">Tab 1</td></tr>
-<tr>
-<td class="label_cell">Tab 1 Title*</td>
-<td class="data_cell"><input id="fu_tab_head_1" value="" size="45" type="text" />
-</td></tr>
-<tr>
-<td class="label_cell">Tab 1 Content*</td>
-<td class="data_cell"><textarea id="fu_tab_content_1" value="" rows="6" cols="4"></textarea>
-</td></tr>
-
-<tr><td class="data_cell" colspan="2">Tab 2</td></tr>
-<tr>
-<td class="label_cell">Tab 2 Title</td>
-<td class="data_cell"><input id="fu_tab_head_2" value="" size="45" type="text" />
-</td></tr>
-<tr>
-<td class="label_cell">Tab 2 Content</td>
-<td class="data_cell"><textarea id="fu_tab_content_2" value="" rows="6" cols="4"></textarea>
-</td></tr>
-
-<tr><td class="data_cell" colspan="2">Tab 3</td></tr>
-<tr>
-<td class="label_cell">Tab 3 Title</td>
-<td class="data_cell"><input id="fu_tab_head_3" value="" size="45" type="text" />
-</td></tr>
-<tr>
-<td class="label_cell">Tab 3 Content</td>
-<td class="data_cell"><textarea id="fu_tab_content_3" value="" rows="6" cols="4"></textarea>
-</td></tr>
-
-<tr><td class="data_cell" colspan="2">Tab 4</td></tr>
-<tr>
-<td class="label_cell">Tab 4 Title</td>
-<td class="data_cell"><input id="fu_tab_head_4" value="" size="45" type="text" />
-</td></tr>
-<tr>
-<td class="label_cell">Tab 4 Content</td>
-<td class="data_cell"><textarea id="fu_tab_content_4" value="" rows="6" cols="4"></textarea>
-</td></tr>
-
-<tr><td class="data_cell" colspan="2">Tab 5</td></tr>
-<tr>
-<td class="label_cell">Tab 5 Title</td>
-<td class="data_cell"><input id="fu_tab_head_5" value="" size="45" type="text" />
-</td></tr>
-<tr>
-<td class="label_cell">Tab 5 Content</td>
-<td class="data_cell"><textarea id="fu_tab_content_5" value="" rows="6" cols="4"></textarea>
-</td></tr>
-
-
-<tr><td class="data_cell" colspan="2">Hours Box</td></tr>
-<tr>
-<td class="label_cell">Hours This Week Content</td>
-<td class="data_cell"><textarea id="fu_hours_content" value="" rows="6" cols="4"></textarea>
-</td></tr>
-</table>
-
-	--------------------------------------------------------------
-SETTINGS JAVASCRIPT
--------------------------------------------------------------------
-var currentLinkEdit = -1;
-var widgetLinks = new Array();
-var oldsave = $('saveWidgetProperty').onclick;
-
-if (typeof $('saveWidgetProperty').onclick != 'function') {
-    $('saveWidgetProperty').onclick = commitWidgetLinks;
-}
-else {
-    $('saveWidgetProperty').onclick = function () {
-        if (commitWidgetLinks()) {
-            oldsave();
-        }
-    }
-}
-
-function commitWidgetLinks ()
-{
- var fu_tab_head_1 = $('fu_tab_head_1').value; 
-    if (fu_tab_head_1 == '') {
-        alert('Please enter the Tab 1 Head');
-        return false;
-}
-	
-var fu_tab_content_1 = $('fu_tab_content_1').value; 
-    if (fu_tab_content_1 == '') {
-         alert('Please enter the Tab 1 Content');
-        return false;
-}
-
- 
-	
-    widgetItems[activeWidget].settings = new Object();
-    widgetItems[activeWidget].settings['fu_tab_head_1'] = fu_tab_head_1;
-	widgetItems[activeWidget].settings['fu_tab_content_1'] = fu_tab_content_1;
-
-	
-
-    return true;
-}
