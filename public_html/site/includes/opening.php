@@ -1,19 +1,8 @@
 <?php
-require_once $_SERVER['DOCUMENT_ROOT'] . '/site/includes/rollbar.php';
-$config = array(
-    // required
-    'access_token' => '2fd451690ee1476a98e2c5526654ef39',
-    // optional - environment name. any string will do.
-    'environment' => 'production',
-    // optional - path to directory your code is in. used for linking stack traces.
-    'root' => $_SERVER['DOCUMENT_ROOT'] . '/site/'
-);
-Rollbar::init($config);
-
     require_once $_SERVER['DOCUMENT_ROOT'] . '/site/includes/lib.php';
     require_once $_SERVER['DOCUMENT_ROOT'] . '/site/includes/structure/breadcrumb.php';
     require_once 'websections/JaduAnnouncements.php';
-    
+
     if (basename($_SERVER['SCRIPT_NAME']) == 'index.php' || Jadu_Service_User::getInstance()->isSessionLoggedIn()) {
         require_once 'websections/JaduTrackedURLs.php';
         require_once 'websections/JaduTrackedURLResults.php';
@@ -112,19 +101,41 @@ Rollbar::init($config);
                 break;
         }
     }
+
+    $bodyClass = array();
+
+    if ($script == 'index.php') {
+        $bodyClass[] = 'home-page';
+    }
+    else {
+        $bodyClass[] = 'inner-page';
+    }
+
+    if ($oneColumnLayout == true) {
+        $bodyClass[] = 'one-column';
+
+        if ($script == 'documents.php') {
+            $bodyClass[] = 'doc-one-column';
+        }
+    }
+
+    if (!empty($accessibilitySettings)) {
+        $bodyClass[] = ' ' . trim($accessibilitySettings);
+    }
 ?>
-    </head>
-    <body<?php if ($oneColumnLayout == true || !empty($accessibilitySettings)) { ?> class="<?php if ($oneColumnLayout == true) { ?>one-column<?php if ($script == 'documents.php') { ?> doc-one-column<?php } } if (!empty($accessibilitySettings)) { print ' '.trim($accessibilitySettings); } ?>"<?php } ?>>
-    
+</head>
+<body<?php if (!empty($bodyClass)): ?> class="<?php print implode(' ', $bodyClass); ?>"<?php endif; ?>>
     <div class="off-canvas-wrap">
 <?php
     require_once $_SERVER['DOCUMENT_ROOT'] . '/site/includes/structure/header.php';
-    
+?>
+
+<?php
     if ($liveUpdate->id != '' && $liveUpdate->id != -1) {
 ?>
         <div class="callout callout__warning announcement">
             <div>
-            <p><strong><?php print encodeHtml($liveUpdate->title); ?></strong> <?php print encodeHtml($liveUpdate->content); ?>
+           <p><strong><?php print encodeHtml($liveUpdate->title); ?></strong> <?php print encodeHtml($liveUpdate->content); ?>
 <?php
         if ($liveUpdate->url != '') {
 ?>
@@ -143,7 +154,7 @@ Rollbar::init($config);
             <h2>Have you read this page?</h2>
             <h3><?php print encodeHtml($trackedURL->title); ?></h3>
             <p><?php print $trackedURL->description; ?></p>
-            <form action="<?php print getSiteRootURL(); ?>" method="post" enctype="multipart/form-data">
+            <form action="/" method="post" enctype="multipart/form-data">
                 <input type="hidden" name="trackedURLID" value="<?php print (int) $trackedURL->id; ?>">
                 <input type="submit" class="button button__primary" name="trackedURLRead" value="I have read this page">
             </form>
@@ -176,12 +187,10 @@ Rollbar::init($config);
 <?php
     }
 ?>
-
 <?php
 include_once(HOME."site/includes/signpost/signpost.php");
 ?>
-    
-<?php 
+<?php
     if (!isset($indexPage) || !$indexPage) {
         if ($isSubsite && $oneColumnLayout && $script == 'documents.php') {
 ?>
@@ -205,12 +214,15 @@ include_once(HOME."site/includes/signpost/signpost.php");
 ?>
             </div>
         </aside>
+<div id="main-fordham-content"></div>
 <?php
         }
         else if ($oneColumnLayout == true && $script == 'home_info.php') {
 ?>
-        <div id="content" class="group" role="main">
-<?php            
+        <!-- <div id="content" class="group" role="main"> -->
+        <div id="content" class="group" tabindex="-1">
+            <h1 class="visually-hidden" id="main-fordham-content"><?php print encodeHtml($MAST_HEADING); ?></h1>
+<?php
         }
         else {
 ?>
@@ -220,17 +232,18 @@ include_once(HOME."site/includes/signpost/signpost.php");
 <?php
             if ($oneColumnLayout == false) {
                 require_once $_SERVER['DOCUMENT_ROOT'] . '/site/includes/structure/column.php';
-            }
+	}
             else if ($script == 'gallery_info.php' || $script == 'documents_info.php') {
 ?>
     <div class="content-padding">
-<?php        
+<?php
             }
 
             // don't show breadcrumb or title for independant homepages
             if (!(isset($homepage) && $homepage->independant == 1)) {
 ?>
-    <div class="main universal" role="main">
+    <!-- <div class="main universal" role="main"> -->
+    <div class="main universal">
 <!-- googleoff: all -->
         <nav class="breadcrumbs">
 <?php
@@ -243,15 +256,21 @@ include_once(HOME."site/includes/signpost/signpost.php");
         </nav>
 <!-- googleon: all -->
         <section class="content">
-         <h1 class="title"><?php print encodeHtml($MAST_HEADING); ?></h1>
+         <h1 class="title" id="main-fordham-content"><?php print encodeHtml($MAST_HEADING); ?></h1>
+<?php
+            }
+            else {
+?>
+            <h1 class="visually-hidden" id="main-fordham-content"><?php print encodeHtml($MAST_HEADING); ?></h1>
 <?php
             }
         }
     }
     else {
 ?>
-        <div class="main" role="main">
-        <h1 class="visually-hidden"><?php print encodeHtml($MAST_HEADING); ?></h1>
-<?php        
+        <!-- <div class="main" role="main"> -->
+        <div class="main">
+        <h1 class="visually-hidden" id="main-fordham-content"><?php print encodeHtml($MAST_HEADING); ?></h1>
+<?php
     }
 ?>
