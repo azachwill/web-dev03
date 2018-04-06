@@ -123,19 +123,17 @@
         $bodyClass[] = ' ' . trim($accessibilitySettings);
     }
 ?>
-</head>
-<body<?php if (!empty($bodyClass)): ?> class="<?php print implode(' ', $bodyClass); ?>"<?php endif; ?>>
+    </head>
+    <body<?php if (!empty($bodyClass)): ?> class="<?php print implode(' ', $bodyClass); ?>"<?php endif; ?>>
     <div class="off-canvas-wrap">
 <?php
     require_once $_SERVER['DOCUMENT_ROOT'] . '/site/includes/structure/header.php';
-?>
 
-<?php
     if ($liveUpdate->id != '' && $liveUpdate->id != -1) {
 ?>
         <div class="callout callout__warning announcement">
             <div>
-           <p><strong><?php print encodeHtml($liveUpdate->title); ?></strong> <?php print encodeHtml($liveUpdate->content); ?>
+            <p><strong><?php print encodeHtml($liveUpdate->title); ?></strong> <?php print encodeHtml($liveUpdate->content); ?>
 <?php
         if ($liveUpdate->url != '') {
 ?>
@@ -187,9 +185,11 @@
 <?php
     }
 ?>
+
 <?php
 include_once(HOME."site/includes/signpost/signpost.php");
 ?>
+
 <?php
     if (!isset($indexPage) || !$indexPage) {
         if ($isSubsite && $oneColumnLayout && $script == 'documents.php') {
@@ -220,7 +220,7 @@ include_once(HOME."site/includes/signpost/signpost.php");
         else if ($oneColumnLayout == true && $script == 'home_info.php') {
 ?>
         <!-- <div id="content" class="group" role="main"> -->
-        <div id="content" class="group" tabindex="-1">
+        <div id="content" class="group">
             <h1 class="visually-hidden" id="main-fordham-content"><?php print encodeHtml($MAST_HEADING); ?></h1>
 <?php
         }
@@ -232,7 +232,7 @@ include_once(HOME."site/includes/signpost/signpost.php");
 <?php
             if ($oneColumnLayout == false) {
                 require_once $_SERVER['DOCUMENT_ROOT'] . '/site/includes/structure/column.php';
-	}
+            }
             else if ($script == 'gallery_info.php' || $script == 'documents_info.php') {
 ?>
     <div class="content-padding">
