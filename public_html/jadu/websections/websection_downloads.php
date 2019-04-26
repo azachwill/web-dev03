@@ -16,14 +16,17 @@
 
     $jadu = \Jadu\Service\Container::getInstance();
     $extensions = $jadu->getExtensionContainer()->filterByAreasAndType(['downloads'], ExtensionContainer::EXTENSION_TYPE_ACTION);
+    $input = $jadu->getInput();
 
     initWorkflowGlobals(
         $adminService->getCurrentAdmin()->id,
         getAwaitingWebmasterAprovalTask(
             DOWNLOADS_TABLE,
-            (isset($_GET['downloadID']) && is_numeric($_GET['downloadID']) && $_GET['downloadID'] > 0 ? (int) $_GET['downloadID'] : -1)
+            ($input->get('downloadID', false) && is_numeric($input->get('downloadID')) && $input->get('downloadID') > 0 ? (int) $input->get('downloadID') : -1)
         )
     );
+
+    $chownQueryString = 'downloadID=' . (int) $downloadID;
 
     // Set defaults for undefined constants
     if (!defined('MAX_UPLOAD_FILE_SIZE_BYTES') || MAX_UPLOAD_FILE_SIZE_BYTES == null) {
@@ -41,12 +44,12 @@
     }
 
     // Delete download
-    if (isset($_POST['deleteDownload']) && $_POST['deleteDownload'] == 1 && isset($_GET['downloadID']) && $_GET['downloadID'] > 0) {
-        deleteDownload($_GET['downloadID']);
-        deleteDownloadPasswordForDownload($_GET['downloadID']);
+    if ($input->post('deleteDownload', false)  == 1 && $input->get('downloadID', false) && $input->get('downloadID') > 0) {
+        deleteDownload($input->get('downloadID'));
+        deleteDownloadPasswordForDownload($input->get('downloadID'));
 
         if ($ADMIN_TASKS_ROLES) {
-            deleteAdminTaskForObject(DOWNLOADS_TABLE, $_GET['downloadID']);
+            deleteAdminTaskForObject(DOWNLOADS_TABLE, $input->get('downloadID'));
         }
 
         header('Location: ./websection_downloads_list.php?statusMessage=' . urlencode('Download deleted'));
@@ -86,15 +89,15 @@
     $viewLink = false;
 
     // Delete files
-    if (isset($_POST['deleteFile']) && $_POST['fileID'] && $_POST['fileID'] > 0) {
-        deleteDownloadFile($_GET['downloadID'], $_POST['fileID']);
+    if (array_key_exists('deleteFiles', $input->post()) &&  $input->post('fileID', false) > 0) {
+        deleteDownloadFile($input->get('downloadID'), $input->post('fileID'));
 
         $statusMessage = 'Download file deleted';
         unset($_POST['fileID'], $_REQUEST['fileID']);
-    } elseif (isset($_POST['deleteFiles']) && count($_POST['deleteID']) > 0) {
-        deleteDownloadFiles($_GET['downloadID'], $_POST['deleteID']);
+    } elseif (array_key_exists('deleteFiles', $input->post()) && count($input->request('deleteID', [], false)) > 0) {
+        deleteDownloadFiles($input->get('downloadID'), $input->request('deleteID', [], false));
 
-        if (count($_POST['deleteID']) > 1) {
+        if (count($input->post('deleteID', [], false)) > 1) {
             $statusMessage = 'The selected items have been deleted';
         } else {
             $statusMessage = 'The selected item has been deleted';
@@ -102,12 +105,12 @@
     }
 
     // Retrieve the selected download (and download file)
-    if (isset($_GET['downloadID']) && $_GET['downloadID'] > 0) {
-        $download = getDownload($_GET['downloadID']);
+    if ($input->get('downloadID', false) && $input->get('downloadID') > 0) {
+        $download = getDownload($input->get('downloadID'));
 
         // Retrieve the selected download file
-        if (isset($_REQUEST['fileID']) && $_REQUEST['fileID'] > 0) {
-            $file = getDownloadFile($_REQUEST['fileID']);
+        if ($input->request('fileID', 0) > 0) {
+            $file = getDownloadFile($input->request('fileID'));
             if (!empty($file->url)) {
                 $viewLink = true;
             } else {
@@ -137,17 +140,17 @@
         $file = new DownloadFile();
     }
 
-    $usePassword = (isset($_POST['passwordEnabled']) && $_POST['passwordEnabled'] == 1);
+    $usePassword = ($input->post('passwordEnabled', false) && $input->post('passwordEnabled') == 1);
 
     // Save download
-    if (isset($_POST['saveDownload'])) {
-        $download->title = isset($_POST['title']) ? trim($_POST['title']) : '';
-        $download->description = isset($_POST['description']) ? trim($_POST['description']) : '';
+    if ($input->post('saveDownload', false)) {
+        $download->title = trim($input->post('title', ''));
+        $download->description = trim($input->post('description', ''));
 
-        $errors = validateDownload($download, $_POST['categories:bespoke'], $_POST['categories:taxonomy']);
+        $errors = validateDownload($download, $input->post('categories:bespoke'), $input->post('categories:taxonomy'));
 
-        if ($usePassword && isset($_POST['changePassword']) && $_POST['changePassword']) {
-            if (!isset($_POST['downloadPassword']) || strlen($_POST['downloadPassword']) < 1) {
+        if ($usePassword && $input->post('changePassword', false)) {
+            if (strlen($input->post('downloadPassword', '')) < 1) {
                 $errors['password'] = true;
             }
         }
@@ -155,12 +158,11 @@
         if (empty($errors)) {
             // Save the download password if there is one
             if ($usePassword) {
-                if (isset($_POST['changePassword']) && $_POST['changePassword'] == 1 && isset($_POST['downloadPassword'])) {
+                if ($input->post('changePassword', 0) == 1 && $input->post('downloadPassword', false)) {
+                    $passwordEncoder = $symfonyKernel->getContainer()->get('jadu_continuum_sdk.authentication.password_encoder');
                     $downloadPassword = getDownloadPasswordForDownload($download->id);
                     $downloadPassword->downloadID = $download->id;
-                    $passwordService = $jadu->getJaduSecurityPassword();
-                    $passwordService->generate(trim($jadu->getInput()->post('downloadPassword')));
-                    $downloadPassword->password = $passwordService->getPassword();
+                    $downloadPassword->password = $passwordEncoder->encodePassword($jadu->getInput()->post('downloadPassword'));
                     $downloadPassword->id = newDownloadPassword($downloadPassword);
                     $download->passwordID = $downloadPassword->id;
                 }
@@ -185,8 +187,8 @@
                 }
 
                 // Add to categories
-                if (isset($_POST['categories:bespoke'])) {
-                    $bespokeString = $_POST['categories:bespoke'];
+                if ($input->post('categories:bespoke', false)) {
+                    $bespokeString = $input->post('categories:bespoke');
                     $bespokeCategories = explode(',', $bespokeString);
                     if (count($bespokeCategories) > 0) {
                         foreach ($bespokeCategories as $id) {
@@ -194,8 +196,8 @@
                         }
                     }
                 }
-                if (isset($_POST['categories:taxonomy'])) {
-                    $taxonomyString = $_POST['categories:taxonomy'];
+                if ($input->post('categories:taxonomy', false)) {
+                    $taxonomyString = $input->post('categories:taxonomy');
                     $taxonomyCategories = explode(',', $taxonomyString);
                     if (count($taxonomyCategories) > 0) {
                         foreach ($taxonomyCategories as $id) {
@@ -212,8 +214,8 @@
                 deleteCategories(DOWNLOADS_CATEGORIES_TABLE, $download->id, $download->visible);
 
                 // Add to categories
-                if (isset($_POST['categories:bespoke'])) {
-                    $bespokeString = $_POST['categories:bespoke'];
+                if ($input->post('categories:bespoke', false)) {
+                    $bespokeString = $input->post('categories:bespoke');
                     $bespokeCategories = explode(',', $bespokeString);
                     if (count($bespokeCategories) > 0) {
                         foreach ($bespokeCategories as $id) {
@@ -221,8 +223,8 @@
                         }
                     }
                 }
-                if (isset($_POST['categories:taxonomy'])) {
-                    $taxonomyString = $_POST['categories:taxonomy'];
+                if ($input->post('categories:taxonomy', false)) {
+                    $taxonomyString = $input->post('categories:taxonomy');
                     $taxonomyCategories = explode(',', $taxonomyString);
                     if (count($taxonomyCategories) > 0) {
                         foreach ($taxonomyCategories as $id) {
@@ -236,17 +238,17 @@
         }
     }
     // Save files
-    if ($download->id > 0 && ($file->id == -1 || ($file->id > 0 && $file->downloadID = $download->id)) && (isset($_POST['saveFile']) || isset($_POST['saveLink']))) {
+    if ($download->id > 0 && ($file->id == -1 || ($file->id > 0 && $file->downloadID = $download->id)) && ($input->post('saveFile', false) || $input->post('saveLink', false))) {
         // Initialise the errors array
         $errors = [];
 
-        if (isset($_POST['saveFile'])) {
+        if ($input->post('saveFile', false)) {
             // Validate the title
-            if (isset($_POST['fileTitle'])) {
-                if (empty(trim($_POST['fileTitle']))) {
+            if ($input->post('fileTitle', false)) {
+                if (empty(trim($input->post('fileTitle')))) {
                     $errors['fileTitle'] = true;
                 } else {
-                    $file->title = trim($_POST['fileTitle']);
+                    $file->title = trim($input->post('fileTitle'));
                 }
             } else {
                 $errors['fileTitle'] = true;
@@ -256,31 +258,31 @@
             $file->url = '';
 
             // Just changing the title
-            if (!isset($_POST['changeFile']) && $file->id != -1) {
+            if (!$input->post('changeFile', false) && $file->id != -1) {
                 updateDownloadFile($file);
 
                 $statusMessage = 'Download file saved';
                 $viewFile = false;
             }
             // Selected a file from WebDAV bulk upload list
-            elseif (isset($_POST['upload_method']) && $_POST['upload_method'] == 'webdav'
-            && isset($_POST['webdavFile']) && !empty($_POST['webdavFile'])
-            && isset($_POST['webdavFileFilter']) && !empty($_POST['webdavFileFilter'])) {
+            elseif ($input->post('upload_method', '') == 'webdav'
+            && !empty($input->post('webdavFile', null))
+            && !empty($input->post('webdavFileFilter', null))) {
                 $webdavPath = HOME_DIR . 'var/webdav/dropbox/';
-                if (isset($_POST['webdavFileFilter']) && $_POST['webdavFileFilter'] == 'admin') {
+                if ($input->post('webdavFileFilter') == 'admin') {
                     $webdavPath .= 'private/' . $adminService->getCurrentAdmin()->username . '/';
                 } else {
                     $webdavPath .= 'public/';
                 }
                 $webdavPath .= 'downloads/';
 
-                $webdavFilePath = $webdavPath . $_POST['webdavFile'];
+                $webdavFilePath = $webdavPath . $input->post('webdavFile');
 
                 if (!file_exists($webdavFilePath)) {
                     $errors['webdavFile'] = true;
                 }
 
-                $file->filename = cleanFilename($_POST['webdavFile']);
+                $file->filename = cleanFilename($input->post('webdavFile'));
                 $file->mimeType = mimeContentType($webdavFilePath);
                 $extension = mb_substr($file->filename, mb_strrpos($file->filename, '.') + 1);
 
@@ -325,7 +327,8 @@
                 }
             }
             // Uploading a file
-            elseif (isset($_POST['upload_method']) && $_POST['upload_method'] == 'upload'
+            // Uploading a file
+            elseif ($input->post('upload_method') == 'upload'
             && isset($_FILES['downloadFileBrowse'])) {
                 switch ($_FILES['downloadFileBrowse']['error']) {
                     case 1: // UPLOAD_ERR_INI_SIZE:
@@ -468,12 +471,12 @@
             }
 
             unset($_POST['upload_method']);
-        } elseif (isset($_POST['saveLink'])) {
+        } elseif ($input->post('saveLink', false)) {
             $viewLink = true;
 
             // Validate the title
-            if (isset($_POST['linkTitle'])) {
-                $file->title = trim($_POST['linkTitle']);
+            if ($input->post('linkTitle', false)) {
+                $file->title = trim($input->post('linkTitle'));
                 if (empty($file->title)) {
                     $errors['linkTitle'] = true;
                 }
@@ -482,9 +485,9 @@
             }
 
             // Validate the URL
-            if (isset($_POST['url'])) {
-                $file->url = $_POST['url'];
-                if (!validateURL($_POST['url'])) {
+            if ($input->post('url', false)) {
+                $file->url = $input->post('url');
+                if (!validateURL($input->post('url'))) {
                     $errors['url'] = true;
                 }
             } else {
@@ -492,8 +495,8 @@
             }
 
             // Validate the file size
-            if (isset($_POST['size']) && isset($_POST['selectSize'])) {
-                $file->size = convertSizeInputToBytes($_POST['size'], $_POST['selectSize']);
+            if ($input->post('size', false) && $input->post('selectSize', false)) {
+                $file->size = convertSizeInputToBytes($input->post('size'), $input->post('selectSize'));
             } else {
                 $errors['size'] = true;
             }
@@ -518,8 +521,8 @@
 
     if ($download->id != -1 && empty($errors)) {
         // Live
-        if (isset($_POST['live'])) {
-            $download->live = (bool) $_POST['live'];
+        if ($input->post('live', false) !== false) {
+            $download->live = (bool) $input->post('live');
             setDownloadLiveStatus($download->id, $download->live);
 
             if (!$download->live) {
@@ -532,8 +535,8 @@
         }
 
         // Visible
-        if (isset($_POST['visible']) && $download->live) {
-            $download->visible = (bool) $_POST['visible'];
+        if ($input->post('visible', false) !== false && $download->live) {
+            $download->visible = (bool) $input->post('visible');
             setDownloadVisibleStatus($download->id, $download->visible);
 
             $categories = getAllCategories(DOWNLOADS_CATEGORIES_TABLE, $download->id);
@@ -542,8 +545,8 @@
             }
         }
         // Workflow
-        if (isset($_POST['approve'])) {
-            $task = getAdminTask($_POST['taskID']);
+        if ($input->post('approve', false)) {
+            $task = getAdminTask($input->post('taskID'));
             if ($THIS_WORKFLOW->id == -1 || $ADMIN_MUST_APPROVE) {
                 $versions = new Versions($task->dbTable, $task->objectID, VERSIONED_DOWNLOADS_TABLE);
                 $download->modDate = time();
@@ -563,14 +566,14 @@
             }
         }
 
-        if ($ADMIN_TASKS_ROLES && isset($_POST['submitToWebmaster']) && $_POST['submitToWebmaster'] > -1) {
+        if ($ADMIN_TASKS_ROLES && $input->post('submitToWebmaster', -1) > -1) {
             $pageURL = '/websections/websection_downloads.php?downloadID=' . $download->id;
-            if ($_POST['submitToWebmaster'] == 0) {
+            if ($input->post('submitToWebmaster') == 0) {
                 deleteAdminTaskForObject(DOWNLOADS_TABLE, $download->id);
                 newAdminTask('', ADMIN_TASK_ACTION_DEPLOY, DOWNLOADS_TABLE, $download->id, $download->title, $adminService->getCurrentAdminID(), $pageURL, 'Downloads', $THIS_WORKFLOW->id, $nextWorkflowAdminLevel->id, '');
             } else {
                 deleteAdminTaskForObject(DOWNLOADS_TABLE, $download->id);
-                newAdminTask($_POST['submitToWebmaster'], ADMIN_TASK_ACTION_DEPLOY, DOWNLOADS_TABLE, $download->id, $download->title, $adminService->getCurrentAdminID(), $pageURL, 'Downloads', $THIS_WORKFLOW->id, $nextWorkflowAdminLevel->id, '');
+                newAdminTask($input->post('submitToWebmaster'), ADMIN_TASK_ACTION_DEPLOY, DOWNLOADS_TABLE, $download->id, $download->title, $adminService->getCurrentAdminID(), $pageURL, 'Downloads', $THIS_WORKFLOW->id, $nextWorkflowAdminLevel->id, '');
             }
             $statusMessage = 'Download sent for approval';
         }
@@ -757,8 +760,8 @@
 
         } ?>
 	<div id="actionsbar">
-        <div class="float--left">
-	        <div class="btn__group dropdown">
+        <div class="dropdDownGroup">
+	        <div class="dropdown">
 	            <button class="btn action dropdown-toggle">Actions <span class="caret"></span></button>
 	                <ul class="dropdown-menu">
 <?php
@@ -766,18 +769,18 @@
         $arguments = 'parentContentItemID=' . $download->id . '&parentTable=' . DOWNLOADS_TABLE . '&parentContentTitle=' . str_replace("'", "\'", urlencode($download->title));
         $contentHistoryLightBox = "loadLightbox('content_history', 'lb', '$arguments');"; ?>
 		 <li>
-			<a class="history" onclick="<?php echo $contentHistoryLightBox; ?>; return false;" href="#">View History</a>
+			<a class="history" onclick="<?php echo $contentHistoryLightBox; ?>; return false;" href="#"><i aria-hidden="true" class="icon-file-text-alt"></i>View History</a>
 		 </li>
 <?php
         if ($adminPageAccessPermissions->updateContent) {
             if ($retail) {
                 ?>
-			<li><a href="<?php echo SECURE_JADU_PATH . '/utils/track_changes.php?productID=' . $product->id . '&downloadID=' . $download->id; ?>">Track Changes</a></li>
+			<li><a href="<?php echo SECURE_JADU_PATH . '/utils/track_changes.php?productID=' . $product->id . '&downloadID=' . $download->id; ?>"><i aria-hidden="true" class="icon-screenshot"></i>Track Changes</a></li>
 <?php
 
             } else {
                 ?>
-			<li><a href="<?php echo SECURE_JADU_PATH . '/utils/track_changes.php?downloadID=' . $download->id; ?>">Track Changes</a></li>
+			<li><a href="<?php echo SECURE_JADU_PATH . '/utils/track_changes.php?downloadID=' . $download->id; ?>"><i aria-hidden="true" class="icon-screenshot"></i>Track Changes</a></li>
 <?php
 
             }
@@ -785,7 +788,7 @@
         if (!$retail && $download->live == 1) {
             ?>
 			<li class="divider"></li>
-			<li><a class="external" href="http://<?php echo DOMAIN . buildDownloadsURL(-1, -1, $download->id); ?>" target="_blank">View live</a></li>
+			<li><a class="external" href="http://<?php echo DOMAIN . buildDownloadsURL(-1, -1, $download->id); ?>" target="_blank"><i aria-hidden="true" class="icon-external-link"></i>View live</a></li>
 <?php
 
         }
@@ -793,7 +796,7 @@
             ?>
 			<li class="divider"></li>
 			<input type="hidden" name="deleteDownload" id="deleteDownload" value="" />
-			<li><a href="#" onclick="if (confirmSubmit()) { $('deleteDownload').value='1'; $('mainForm').submit(); } return false;">Delete</a></li>
+			<li><a href="#" onclick="if (confirmSubmit()) { $('deleteDownload').value='1'; $('mainForm').submit(); } return false;"><i aria-hidden="true" class="icon-remove"></i>Delete</a></li>
 <?php
 
         }
@@ -810,7 +813,7 @@
                 $createTranslationTaskLightBox = "loadLightbox('translations/translations', 'lb', '$arguments')"; ?>
 				<li class="divider"></li>
 				<li>
-					<a class="createTask" onclick="<?php echo $createTranslationTaskLightBox; ?>; return false;" href="#">Translate</a>
+					<a class="createTask" onclick="<?php echo $createTranslationTaskLightBox; ?>; return false;" href="#"><i aria-hidden="true" class="icon-language"></i>Translate</a>
 				</li>
 <?php
 
@@ -819,7 +822,7 @@
                 ?>
 				<li class="divider"></li>
 				<li>
-					<a onclick="<?php echo $viewTranslationsLightbox; ?> return false;" href="#">View Translations</a>
+					<a onclick="<?php echo $viewTranslationsLightbox; ?> return false;" href="#"><i aria-hidden="true" class="icon-eye-open"></i>View Translations</a>
 				</li>
 <?php
 
@@ -827,10 +830,8 @@
         }
     }
         echo partial('@assets/components/action-list.html.twig', ['extensions' => $extensions]); ?>
-	</ul>
+	           </ul>
             </div>
-        </div>
-        <div>
 <?php
     if ($download->id > 0) {
         if (awaitingWebmasterAproval(DOWNLOADS_TABLE, $download->id)) {
@@ -838,9 +839,9 @@
             if (canAdminApproveTask($adminService->getCurrentAdmin(), $task, $THIS_WORKFLOW)) {
                 ?>
 			<input type="hidden" name="taskID" value="<?php echo $task->id; ?>">
-            <div class="buttonGroup float--right">
-			<input type="submit" class="btn btn--success ckBeforeSave" name="approve" value=" Approve " onclick="return approveTask(<?php echo $task->id; ?>);">
-			<input type="button" class="btn btn--danger" name="reject" value=" Decline " onclick="loadTaskSubmit('<?php echo $task->id; ?>','<?php echo ADMIN_TASK_ACTION_REJECT; ?>','<?php echo encodeHtml($task->pageTitle) ?>', '<?php echo $THIS_WORKFLOW->id; ?>','','<?php echo encodeHtml($_SERVER['QUERY_STRING']); ?>')" />
+            <div class="buttonGroup">
+                <input type="button" class="btn btn--danger" name="reject" value=" Decline " onclick="loadTaskSubmit('<?php echo $task->id; ?>','<?php echo ADMIN_TASK_ACTION_REJECT; ?>','<?php echo encodeHtml($task->pageTitle) ?>', '<?php echo $THIS_WORKFLOW->id; ?>','','<?php echo $chownQueryString; ?>')" />
+    			<input type="submit" class="btn btn--success ckBeforeSave" name="approve" value=" Approve " onclick="return approveTask(<?php echo $task->id; ?>);">
             </div>
 <?php
 
@@ -864,11 +865,11 @@
 				<button class="btn sort dropdown-toggle">Collaborate <span class="caret"></span></button>
 				<ul class="dropdown-menu">
 					<li>
-						<a href="#" onclick="$('submitCollaboration').value='0'; loadTaskCollaborate('<?php echo $download->id; ?>','<?php echo ADMIN_TASK_ACTION_COLLABORATE; ?>', 'Downloads', '<?php echo $THIS_WORKFLOW->id; ?>','','<?php echo $_SERVER['QUERY_STRING']; ?>'); return false;">Yes</a>
+						<a href="#" onclick="$('submitCollaboration').value='0'; loadTaskCollaborate('<?php echo $download->id; ?>','<?php echo ADMIN_TASK_ACTION_COLLABORATE; ?>', 'Downloads', '<?php echo $THIS_WORKFLOW->id; ?>','','<?php echo $chownQueryString; ?>'); return false;">Yes</a>
 					</li>
 					<li class="divider"></li>
 					<li>
-						<a href="#" onclick="$('submitCollaboration').value='-1'; loadTaskCollaborate('<?php echo $download->id; ?>','<?php echo ADMIN_TASK_ACTION_COLLABORATE; ?>', 'Downloads', '<?php echo $THIS_WORKFLOW->id; ?>','','<?php echo $_SERVER['QUERY_STRING']; ?>'); return false;">No</a>
+						<a href="#" onclick="$('submitCollaboration').value='-1'; loadTaskCollaborate('<?php echo $download->id; ?>','<?php echo ADMIN_TASK_ACTION_COLLABORATE; ?>', 'Downloads', '<?php echo $THIS_WORKFLOW->id; ?>','','<?php echo $chownQueryString; ?>'); return false;">No</a>
 					</li>
 
 
@@ -876,7 +877,7 @@
                 foreach ($COLLABORATION_ADMINS as $adminForCollaborate) {
                     ?>
 					<li>
-						<a href="#" onclick="$('submitCollaboration').value='<?php echo $adminForCollaborate->id ?>'; loadTaskCollaborate('<?php echo $download->id; ?>','<?php echo ADMIN_TASK_ACTION_COLLABORATE; ?>', 'Downloads', '<?php echo $THIS_WORKFLOW->id; ?>','','<?php echo $_SERVER['QUERY_STRING']; ?>'); return false;"><?php echo $adminForCollaborate->name; ?> </a>
+						<a href="#" onclick="$('submitCollaboration').value='<?php echo $adminForCollaborate->id ?>'; loadTaskCollaborate('<?php echo $download->id; ?>','<?php echo ADMIN_TASK_ACTION_COLLABORATE; ?>', 'Downloads', '<?php echo $THIS_WORKFLOW->id; ?>','','<?php echo $chownQueryString; ?>'); return false;"><?php echo $adminForCollaborate->name; ?> </a>
 					</li>
 <?php
 
@@ -887,31 +888,34 @@
 
             } ?>
 				<input type="hidden" name="submitToWebmaster" id="submitToWebmaster" value="-1" />
+            <div class=buttonGroup>
 <?php
             if (is_array($PROOFING_ADMINS) && !empty($PROOFING_ADMINS)) {
                 ?>
 				<div class="dropdown">
-				<button class="btn submit dropdown-toggle">Submit <span class="caret"></span></button>
-				<ul class="dropdown-menu">
-					<li><a href="#" onclick="$('submitToWebmaster').value='0'; $('mainForm').submit(); return false;">Yes</a></li>
-<?php
-                foreach ($PROOFING_ADMINS as $adminForProofing) {
-                    ?>
-					<li><a href="#" onclick="$('submitToWebmaster').value='<?php echo $adminForProofing->id; ?>'; $('mainForm').submit(); return false;"><?php echo encodeHtml($adminForProofing->name); ?></a></li>
-<?php
+    				<button class="btn submit dropdown-toggle">Submit <span class="caret"></span></button>
+    				<ul class="dropdown-menu pull-right">
+    					<li><a href="#" onclick="$('submitToWebmaster').value='0'; $('mainForm').submit(); return false;">Yes</a></li>
+    <?php
+                    foreach ($PROOFING_ADMINS as $adminForProofing) {
+                        ?>
+    					<li><a href="#" onclick="$('submitToWebmaster').value='<?php echo $adminForProofing->id; ?>'; $('mainForm').submit(); return false;"><?php echo encodeHtml($adminForProofing->name); ?></a></li>
+    <?php
 
-                } ?>
-				</ul>
+                    } ?>
+    				</ul>
 				</div>
 <?php
 
             } else {
                 ?>
-					<div class=buttonGroup><a href="#" class="linkSubmit" onclick="$('submitToWebmaster').value='0'; $('mainForm').submit(); return false;">Submit</a></div>
+				<a href="#" class="linkSubmit" onclick="$('submitToWebmaster').value='0'; $('mainForm').submit(); return false;">Submit</a>
 <?php
 
             }
-
+?>
+            </div>
+<?php
             if ($download->id != -1) {
                 $versions = getDownloadsPreviousVersions($download->id);
                 if ($versions->liveVersion != -1) {
@@ -966,7 +970,7 @@
 				<td class="generic_desc<?php if (isset($errors['bespokeCategories']) || isset($errors['taxonomyCategories'])) {
         ?>_error<?php 
     } ?>"><em><?php echo $stepCounter++; ?>.</em> <p>Categories*</p></td>
-				<td class="generic_action"><input type="button" class="btn" id="assignCategories" value="Assign Categories" onclick="return loadLightbox('assign_category', 'lb', '');"></td>
+				<td class="generic_action"><input type="button" class="btn btn--old-table" id="assignCategories" value="Assign Categories" onclick="return loadLightbox('assign_category', 'lb', '');"></td>
 			</tr>
 			<tr>
 				<td class="generic_desc">
@@ -990,15 +994,15 @@
 				</td>
 				<td class="generic_action">
 					<select class="select" name="passwordEnabled" id="passwordEnabled"	onchange="if(this.value=='1') {document.getElementById('setPasswordBlock').style.display = 'block';} else {document.getElementById('setPasswordBlock').style.display = 'none';}">
-						<option value="1"<?php if (($download->passwordID > 0 && !isset($_POST['passwordEnabled'])) || (isset($_POST['passwordEnabled']) && $_POST['passwordEnabled'])) {
+						<option value="1"<?php if (($download->passwordID > 0 && !$input->post('passwordEnabled', false)) || ($input->post('passwordEnabled', false) && $input->post('passwordEnabled'))) {
             echo ' selected="selected"';
         } ?> >Yes</option>
-						<option value="0"<?php if (($download->passwordID < 1 && !isset($_POST['passwordEnabled'])) || (isset($_POST['passwordEnabled']) && !$_POST['passwordEnabled'])) {
+						<option value="0"<?php if (($download->passwordID < 1 && !$input->post('passwordEnabled', false)) || ($input->post('passwordEnabled', false) && !$input->post('passwordEnabled', false))) {
             echo ' selected="selected"';
         } ?> >No</option>
 					</select>
 
-					<p id="setPasswordBlock" style="display:<?php (($download->passwordID > 0 && !isset($_POST['passwordEnabled'])) || (isset($_POST['passwordEnabled']) && $_POST['passwordEnabled'])) ? print 'block' : print 'none'; ?>;">
+					<p id="setPasswordBlock" style="display:<?php (($download->passwordID > 0 && !$input->post('passwordEnabled', false)) || ($input->post('passwordEnabled', false) && $input->post('passwordEnabled'))) ? print 'block' : print 'none'; ?>;">
 <?php
                     if ($download->passwordID > 0) {
                         ?>
@@ -1076,10 +1080,12 @@
             if ($adminPageAccessPermissions->updateContent) {
                 ?>
 				<td class="js-download-title"><span><a href="./websection_downloads.php?downloadID=<?php echo $download->id; ?>&amp;fileID=<?php echo $fileItem->id; ?>"><?php echo encodeHtml($fileItem->title); ?></a>
+
 <!--include file for copy to clipboard button-->
                         <?php if (file_exists(JADU_HOME . "/custom/fordham_websection_downloads_custom.php")) {
                               include("custom/fordham_websection_downloads_custom.php");}
                         ?>
+
 </span></td>
 <?php
 
@@ -1090,6 +1096,7 @@
                         <?php if (file_exists(JADU_HOME . "/custom/fordham_websection_downloads_custom.php")) {
                               include("custom/fordham_websection_downloads_custom.php");}
                         ?>
+
 				<td><span><?php echo encodeHtml($fileItem->title); ?></span></td>
 <?php
 
@@ -1178,7 +1185,7 @@
 <?php
         if ($adminPageAccessPermissions->createContent) {
             ?>
-					<button type="button" class="btn btn--primary no-results__action" name="uploadShow" onclick="<?php if ($file->id == -1) {
+					<button type="button" class="btn no-results__action" name="uploadShow" onclick="<?php if ($file->id == -1) {
                 echo 'viewFileFunction();';
             } else {
                 echo 'clearFile();';
@@ -1186,7 +1193,7 @@
 <?php
                 if (isset($excludedFieldList) && !in_array('linkShow', $excludedFieldList)) {
                     ?>
-					<button type="button" class="btn btn--primary no-results__action" name="linkShow" onclick="<?php if ($file->id == -1) {
+					<button type="button" class="btn no-results__action" name="linkShow" onclick="<?php if ($file->id == -1) {
                         echo 'viewLinkFunction();';
                     } else {
                         echo 'clearLink();';
@@ -1194,7 +1201,7 @@
 <?php
 
                 } ?>
-					<button type="button" id="dropButton" class="btn btn--primary no-results__action" name="dropboxShow" onclick="$('dropbox').style.display = 'block'; return false;" >Drop in New Files</button>
+					<button type="button" id="dropButton" class="btn no-results__action" name="dropboxShow" onclick="$('dropbox').style.display = 'block'; return false;" >Drop in New Files</button>
 <?php
 
         } ?>
@@ -1236,15 +1243,15 @@
                     ?>
 				<tr id="change_file">
 					<td class="generic_desc"><em><?php echo $stepCounter++; ?>.</em> <p>Change File?</p></td>
-					<td class="generic_action"><input type="checkbox" name="changeFile" id="changeFile" onclick="showFileUploadRow('');"<?php echo $file->id != -1 && (!isset($_POST['saveFile']) || (!isset($errors['downloadFileBrowse']) && !isset($errors['webdavFile']))) ? '' : ' checked="checked"'; ?> /></td>
+					<td class="generic_action"><input type="checkbox" name="changeFile" id="changeFile" onclick="showFileUploadRow('');"<?php echo $file->id != -1 && (!$input->post('saveFile') || (!isset($errors['downloadFileBrowse']) && !isset($errors['webdavFile']))) ? '' : ' checked="checked"'; ?> /></td>
 				</tr>
 <?php
 
                 } ?>
-				<tr id="upload_row"<?php echo $file->id != -1 && (!isset($_POST['saveFile']) || (!isset($errors['downloadFileBrowse']) && !isset($errors['webdavFile']))) ? ' style="display:none;"' : ''; ?>>
+				<tr id="upload_row"<?php echo $file->id != -1 && (!$input->post('saveFile', false) || (!isset($errors['downloadFileBrowse']) && !isset($errors['webdavFile']))) ? ' style="display:none;"' : ''; ?>>
 					<td class="generic_desc<?php if (isset($errors['downloadFileBrowse']) || isset($errors['webdavFile'])) {
                     echo '_error';
-                } ?>"><em><?php echo $stepCounter++; ?>.</em> <p><label id="fileSelection">File selection</label><?php if (!isset($_GET['fileID'])) {
+                } ?>"><em><?php echo $stepCounter++; ?>.</em> <p><label id="fileSelection">File selection</label><?php if (!$input->get('fileID', false)) {
                     echo '*';
                 } ?></p></td>
 					<td class="generic_action">
@@ -1278,17 +1285,17 @@
 						</script>
 						<select name="upload_method" id="upload_method" onchange="displayUploadMethod(this);" aria-labelledby="fileSelection">
 							<option value="">Select an upload method</option>
-							<option value="upload"<?php echo isset($_POST['upload_method']) && $_POST['upload_method'] == 'upload' ? ' selected="selected"' : ''; ?>>Upload a new file</option>
-							<option value="webdav"<?php echo isset($_POST['upload_method']) && $_POST['upload_method'] == 'webdav' ? ' selected="selected"' : ''; ?>>Select a file from the bulk upload list</option>
+							<option value="upload"<?php echo $input->post('upload_method') == 'upload' ? ' selected="selected"' : ''; ?>>Upload a new file</option>
+							<option value="webdav"<?php echo $input->post('upload_method')  == 'webdav' ? ' selected="selected"' : ''; ?>>Select a file from the bulk upload list</option>
 						</select><br />
 						<br style="clear:both" />
-						<div id="download_upload_file"<?php if (!isset($_POST['upload_method']) || $_POST['upload_method'] != 'upload') {
+						<div id="download_upload_file"<?php if (!$input->post('upload_method', false) || $input->post('upload_method') != 'upload') {
                             echo ' style="display:none;"';
                         } ?>>
 							<input type="file" name="downloadFileBrowse" size="48" value="" aria-labelledby="fileSelection"/>
 							<p>The maximum allowed file size is: <?php echo formatFilesize(MAX_UPLOAD_FILE_SIZE_BYTES); ?></p>
 						</div>
-						<div id="download_webdav_file"<?php if (!isset($_POST['upload_method']) || $_POST['upload_method'] != 'webdav') {
+						<div id="download_webdav_file"<?php if (!$input->post('upload_method', false) || $input->post('upload_method') != 'webdav') {
                             echo ' style="display:none;"';
                         } ?>>
 							<input type="hidden" name="webdavFile" id="webdavFile" value="" />
