@@ -26,7 +26,10 @@
         )
     );
 
-    $chownQueryString = 'downloadID=' . (int) $downloadID;
+    $chownQueryString = '';
+    if ($input->get('downloadID', false)) {
+        $chownQueryString = 'downloadID=' . (int) $input->get('downloadID');
+    }
 
     // Set defaults for undefined constants
     if (!defined('MAX_UPLOAD_FILE_SIZE_BYTES') || MAX_UPLOAD_FILE_SIZE_BYTES == null) {
@@ -44,7 +47,7 @@
     }
 
     // Delete download
-    if ($input->post('deleteDownload', false)  == 1 && $input->get('downloadID', false) && $input->get('downloadID') > 0) {
+    if ($input->post('deleteDownload', false) == 1 && $input->get('downloadID', false) && $input->get('downloadID') > 0) {
         deleteDownload($input->get('downloadID'));
         deleteDownloadPasswordForDownload($input->get('downloadID'));
 
@@ -89,11 +92,12 @@
     $viewLink = false;
 
     // Delete files
-    if (array_key_exists('deleteFiles', $input->post()) &&  $input->post('fileID', false) > 0) {
+    if (array_key_exists('deleteFile', $input->post()) && $input->post('fileID', false) > 0) {
         deleteDownloadFile($input->get('downloadID'), $input->post('fileID'));
 
-        $statusMessage = 'Download file deleted';
-        unset($_POST['fileID'], $_REQUEST['fileID']);
+        $jadu->getJaduSession('flash', 'jadu_cc')->set('success', 'Download file deleted');
+        header('Location: ./websection_downloads.php?downloadID=' . $input->request('downloadID'));
+        exit;
     } elseif (array_key_exists('deleteFiles', $input->post()) && count($input->request('deleteID', [], false)) > 0) {
         deleteDownloadFiles($input->get('downloadID'), $input->request('deleteID', [], false));
 
@@ -556,12 +560,12 @@
                 }
                 $versions->setLatestVersionCurrent(VERSIONED_DOWNLOADS_TABLE);
                 deleteDownloadsCache();
-                Jadu_Service_Container::getInstance()->getEventContainer()->fire('download.approve', (new Jadu_Page_Download_Event_Object($download, $adminService->getCurrentAdmin())));
+                Jadu_Service_Container::getInstance()->getEventContainer()->fire('download.approve', (new Jadu_Page_Download_Event_Object($download, $adminService->getCurrentAdmin(), false, $input->post('workflow_task_comment'))));
                 deleteAdminTaskForObject($task->dbTable, $task->objectID);
                 $statusMessage = 'Download approved';
             } else {
                 deleteAdminTaskForObject($task->dbTable, $task->objectID);
-                newAdminTask('', ADMIN_TASK_ACTION_DEPLOY, $task->dbTable, $task->objectID, $task->objectTitle, $adminService->getCurrentAdmin()->id, $task->pageURL, $task->pageTitle, $task->workflowID, $nextWorkflowAdminLevel->id, '');
+                newAdminTask('', ADMIN_TASK_ACTION_DEPLOY, $task->dbTable, $task->objectID, $task->objectTitle, $adminService->getCurrentAdmin()->id, $task->pageURL, $task->pageTitle, $task->workflowID, $nextWorkflowAdminLevel->id, $input->post('workflow_task_comment'));
                 $statusMessage = 'Download sent for approval';
             }
         }
@@ -602,12 +606,10 @@
         ?>
 	<div class="not_yet"><h3>You do not have permission to view this download.</h3></div>
 <?php
-
     } elseif ($download->id < 1 && !$adminPageAccessPermissions->createContent) {
         ?>
 	<div class="not_yet"><h3>You do not have permission to create a new download.</h3></div>
 <?php
-
     } else {
         ?>
 <script type="text/javascript">
@@ -713,51 +715,42 @@
         ?>
 	<h4 class="validate_mssg">The file extension you have uploaded is not supported.</h4>
 <?php
-
     } elseif ($fileSizeError) {
         ?>
-	<h4 class="validate_mssg">The file you have uploaded is larger than the allowed size, Please make sure your file is <span>less than <?php echo formatFilesize(MAX_UPLOAD_FILE_SIZE_BYTES) ?></span></h4>
+	<h4 class="validate_mssg">The file you have uploaded is larger than the allowed size, Please make sure your file is <span>less than <?php print formatFilesize(MAX_UPLOAD_FILE_SIZE_BYTES) ?></span></h4>
 <?php
-
     } elseif ($filePermissionsError) {
         ?>
-	<h4 class="validate_mssg">Could not save file, permission denied. Unable to write to <span><?php echo $destinationDir; ?></span> Please contact Jadu Support.</h4>
+	<h4 class="validate_mssg">Could not save file, permission denied. Unable to write to <span><?php print $destinationDir; ?></span> Please contact Jadu Support.</h4>
 <?php
-
     } elseif ($fileTransferError) {
         ?>
 	<h4 class="validate_mssg">There was an error during the file upload. Please try again.</h4>
 <?php
-
     } elseif ($brokenFileError) {
         ?>
 	<h4 class="validate_mssg">There was an error during the file upload. Either no file was selected or the file was lost during transfer. Please try again.</h4>
 <?php
-
     } elseif ($noFilesSelectedError) {
         ?>
 	<h4 class="validate_mssg">You have not selected any download files or links to be deleted.</h4>
 <?php
-
     }
 
         if (count($errors) > 0) {
             ?>
 	<h4 class="validate_mssg">Please check that <span>these details*</span> are completed correctly</h4>
 <?php
-
         }
 
         if ($retail) {
             ?>
-		<form name="mainForm" id="mainForm" action="./retail_product_details_download_detail.php?productID=<?php echo intval($product->id); ?>&downloadID=<?php echo $download->id; ?>" method="post" enctype="multipart/form-data">
+		<form name="mainForm" id="mainForm" action="./retail_product_details_download_detail.php?productID=<?php print intval($product->id); ?>&downloadID=<?php print $download->id; ?>" method="post" enctype="multipart/form-data">
 <?php
-
         } else {
             ?>
-		<form name="mainForm" id="mainForm" action="./websection_downloads.php?downloadID=<?php echo $download->id; ?>" method="post" enctype="multipart/form-data">
+		<form name="mainForm" id="mainForm" action="./websection_downloads.php?downloadID=<?php print $download->id; ?>" method="post" enctype="multipart/form-data">
 <?php
-
         } ?>
 	<div id="actionsbar">
         <div class="dropdDownGroup">
@@ -769,28 +762,25 @@
         $arguments = 'parentContentItemID=' . $download->id . '&parentTable=' . DOWNLOADS_TABLE . '&parentContentTitle=' . str_replace("'", "\'", urlencode($download->title));
         $contentHistoryLightBox = "loadLightbox('content_history', 'lb', '$arguments');"; ?>
 		 <li>
-			<a class="history" onclick="<?php echo $contentHistoryLightBox; ?>; return false;" href="#"><i aria-hidden="true" class="icon-file-text-alt"></i>View History</a>
+			<a class="history" onclick="<?php print $contentHistoryLightBox; ?>; return false;" href="#"><i aria-hidden="true" class="icon-file-text-alt"></i>View History</a>
 		 </li>
 <?php
         if ($adminPageAccessPermissions->updateContent) {
             if ($retail) {
                 ?>
-			<li><a href="<?php echo SECURE_JADU_PATH . '/utils/track_changes.php?productID=' . $product->id . '&downloadID=' . $download->id; ?>"><i aria-hidden="true" class="icon-screenshot"></i>Track Changes</a></li>
+			<li><a href="<?php print SECURE_JADU_PATH . '/utils/track_changes.php?productID=' . $product->id . '&downloadID=' . $download->id; ?>"><i aria-hidden="true" class="icon-screenshot"></i>Track Changes</a></li>
 <?php
-
             } else {
                 ?>
-			<li><a href="<?php echo SECURE_JADU_PATH . '/utils/track_changes.php?downloadID=' . $download->id; ?>"><i aria-hidden="true" class="icon-screenshot"></i>Track Changes</a></li>
+			<li><a href="<?php print SECURE_JADU_PATH . '/utils/track_changes.php?downloadID=' . $download->id; ?>"><i aria-hidden="true" class="icon-screenshot"></i>Track Changes</a></li>
 <?php
-
             }
         }
         if (!$retail && $download->live == 1) {
             ?>
 			<li class="divider"></li>
-			<li><a class="external" href="http://<?php echo DOMAIN . buildDownloadsURL(-1, -1, $download->id); ?>" target="_blank"><i aria-hidden="true" class="icon-external-link"></i>View live</a></li>
+			<li><a class="external" href="http://<?php print DOMAIN . buildDownloadsURL(-1, -1, $download->id); ?>" target="_blank"><i aria-hidden="true" class="icon-external-link"></i>View live</a></li>
 <?php
-
         }
         if ($adminPageAccessPermissions->deleteContent) {
             ?>
@@ -798,7 +788,6 @@
 			<input type="hidden" name="deleteDownload" id="deleteDownload" value="" />
 			<li><a href="#" onclick="if (confirmSubmit()) { $('deleteDownload').value='1'; $('mainForm').submit(); } return false;"><i aria-hidden="true" class="icon-remove"></i>Delete</a></li>
 <?php
-
         }
         if (!$site->isMainSite) {
             $contentTypeDataMapper = new \Jadu\ContentType\DataMapper(Jadu_Service_Container::getInstance()->getDB(), new Jadu_CacheManager());
@@ -813,23 +802,21 @@
                 $createTranslationTaskLightBox = "loadLightbox('translations/translations', 'lb', '$arguments')"; ?>
 				<li class="divider"></li>
 				<li>
-					<a class="createTask" onclick="<?php echo $createTranslationTaskLightBox; ?>; return false;" href="#"><i aria-hidden="true" class="icon-language"></i>Translate</a>
+					<a class="createTask" onclick="<?php print $createTranslationTaskLightBox; ?>; return false;" href="#"><i aria-hidden="true" class="icon-language"></i>Translate</a>
 				</li>
 <?php
-
             }
             if (!checkGalaxyNotInTranslationGroup(MICROSITE_ID)) {
                 ?>
 				<li class="divider"></li>
 				<li>
-					<a onclick="<?php echo $viewTranslationsLightbox; ?> return false;" href="#"><i aria-hidden="true" class="icon-eye-open"></i>View Translations</a>
+					<a onclick="<?php print $viewTranslationsLightbox; ?> return false;" href="#"><i aria-hidden="true" class="icon-eye-open"></i>View Translations</a>
 				</li>
 <?php
-
             }
         }
     }
-        echo partial('@assets/components/action-list.html.twig', ['extensions' => $extensions]); ?>
+        print partial('@assets/components/action-list.html.twig', ['extensions' => $extensions]); ?>
 	           </ul>
             </div>
 <?php
@@ -837,149 +824,144 @@
         if (awaitingWebmasterAproval(DOWNLOADS_TABLE, $download->id)) {
             $task = getAwaitingWebmasterAprovalTask(DOWNLOADS_TABLE, $download->id);
             if (canAdminApproveTask($adminService->getCurrentAdmin(), $task, $THIS_WORKFLOW)) {
-                ?>
-			<input type="hidden" name="taskID" value="<?php echo $task->id; ?>">
-            <div class="buttonGroup">
-                <input type="button" class="btn btn--danger" name="reject" value=" Decline " onclick="loadTaskSubmit('<?php echo $task->id; ?>','<?php echo ADMIN_TASK_ACTION_REJECT; ?>','<?php echo encodeHtml($task->pageTitle) ?>', '<?php echo $THIS_WORKFLOW->id; ?>','','<?php echo $chownQueryString; ?>')" />
-    			<input type="submit" class="btn btn--success ckBeforeSave" name="approve" value=" Approve " onclick="return approveTask(<?php echo $task->id; ?>);">
-            </div>
-<?php
-
+                $sendToNextLevelForApproval = true;
+                if ($ADMIN_MUST_APPROVE || $THIS_WORKFLOW->id === -1) {
+                    $sendToNextLevelForApproval = false;
+                }
+                $taskAdmin = getAdministrator($task->fromAdminID);
+                $timeline = new \Jadu\Response\HtmlResponse('@assets/workflow/task/component/reviewer_pending_timeline.html.twig', [
+                    'task' => $task,
+                    'taskAdmin' => getAdministrator($task->fromAdminID),
+                    'taskAdminLevel' => getWorkflowAdminLevel($taskAdmin->adminLevelID),
+                    'sendToNextLevelForApproval' => $sendToNextLevelForApproval,
+                ]);
+                print $timeline->toHtml();
             } else {
-                ?>
-				<h3>This Item has been submitted
-<?php
-                    if ($task->adminID != 0) {
-                        $submittedTo = $adminService->getAdministrator($task->adminID);
-                        echo 'to ' . $submittedTo->name;
-                    } ?>
-				 for approval</h3>
-<?php
-
+                $taskAdmin = getAdministrator($task->fromAdminID);
+                $timeline = new \Jadu\Response\HtmlResponse('@assets/workflow/task/component/editor_pending_timeline.html.twig', [
+                    'task' => $task,
+                    'taskAdmin' => getAdministrator($task->fromAdminID),
+                    'taskAdminLevel' => getWorkflowAdminLevel($taskAdmin->adminLevelID),
+                    'showCancelTaskButton' => ($taskAdmin->adminLevelID == \Jadu\Service\Container::getInstance()->getJaduAdministrator()->getCurrentAdmin()->adminLevelID),
+                ]);
+                print $timeline->toHtml();
             }
         } else {
             if ($THIS_WORKFLOW->id != -1 && !empty($COLLABORATION_ADMINS)) {
                 ?>
-			<input type="hidden" name="submitCollaboration" id="submitCollaboration" value="-1" />
-			<div class="dropdown">
-				<button class="btn sort dropdown-toggle">Collaborate <span class="caret"></span></button>
-				<ul class="dropdown-menu">
-					<li>
-						<a href="#" onclick="$('submitCollaboration').value='0'; loadTaskCollaborate('<?php echo $download->id; ?>','<?php echo ADMIN_TASK_ACTION_COLLABORATE; ?>', 'Downloads', '<?php echo $THIS_WORKFLOW->id; ?>','','<?php echo $chownQueryString; ?>'); return false;">Yes</a>
-					</li>
-					<li class="divider"></li>
-					<li>
-						<a href="#" onclick="$('submitCollaboration').value='-1'; loadTaskCollaborate('<?php echo $download->id; ?>','<?php echo ADMIN_TASK_ACTION_COLLABORATE; ?>', 'Downloads', '<?php echo $THIS_WORKFLOW->id; ?>','','<?php echo $chownQueryString; ?>'); return false;">No</a>
-					</li>
+                    <input type="hidden" name="submitCollaboration" id="submitCollaboration" value="-1"/>
+                    <div class="dropdown">
+                        <button class="btn sort dropdown-toggle">Collaborate <span class="caret"></span></button>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a href="#"
+                                   onclick="$('submitCollaboration').value='0'; loadTaskCollaborate('<?php print $download->id; ?>','<?php print ADMIN_TASK_ACTION_COLLABORATE; ?>', 'Downloads', '<?php print $THIS_WORKFLOW->id; ?>','','<?php print $chownQueryString; ?>'); return false;">Yes</a>
+                            </li>
+                            <li class="divider"></li>
+                            <li>
+                                <a href="#"
+                                   onclick="$('submitCollaboration').value='-1'; loadTaskCollaborate('<?php print $download->id; ?>','<?php print ADMIN_TASK_ACTION_COLLABORATE; ?>', 'Downloads', '<?php print $THIS_WORKFLOW->id; ?>','','<?php print $chownQueryString; ?>'); return false;">No</a>
+                            </li>
 
 
-<?php
-                foreach ($COLLABORATION_ADMINS as $adminForCollaborate) {
-                    ?>
-					<li>
-						<a href="#" onclick="$('submitCollaboration').value='<?php echo $adminForCollaborate->id ?>'; loadTaskCollaborate('<?php echo $download->id; ?>','<?php echo ADMIN_TASK_ACTION_COLLABORATE; ?>', 'Downloads', '<?php echo $THIS_WORKFLOW->id; ?>','','<?php echo $chownQueryString; ?>'); return false;"><?php echo $adminForCollaborate->name; ?> </a>
-					</li>
-<?php
-
-                } ?>
-				</ul>
-			</div>
-<?php
-
+                            <?php
+                            foreach ($COLLABORATION_ADMINS as $adminForCollaborate) {
+                                ?>
+                                <li>
+                                    <a href="#"
+                                       onclick="$('submitCollaboration').value='<?php print $adminForCollaborate->id ?>'; loadTaskCollaborate('<?php print $download->id; ?>','<?php print ADMIN_TASK_ACTION_COLLABORATE; ?>', 'Downloads', '<?php print $THIS_WORKFLOW->id; ?>','','<?php print $chownQueryString; ?>'); return false;"><?php print $adminForCollaborate->name; ?> </a>
+                                </li>
+                                <?php
+                            } ?>
+                        </ul>
+                    </div>
+                    <?php
             } ?>
-				<input type="hidden" name="submitToWebmaster" id="submitToWebmaster" value="-1" />
-            <div class=buttonGroup>
 <?php
-            if (is_array($PROOFING_ADMINS) && !empty($PROOFING_ADMINS)) {
+            $declinedTasks = getAdminTasksForObject(DOWNLOADS_TABLE, $download->id, ADMIN_TASK_ACTION_EDIT);
+            $declinedTask = !empty($declinedTasks) ? array_pop($declinedTasks) : null;
+            if (!empty($declinedTask) && $declinedTask->id > 0) {
                 ?>
-				<div class="dropdown">
-    				<button class="btn submit dropdown-toggle">Submit <span class="caret"></span></button>
-    				<ul class="dropdown-menu pull-right">
-    					<li><a href="#" onclick="$('submitToWebmaster').value='0'; $('mainForm').submit(); return false;">Yes</a></li>
-    <?php
-                    foreach ($PROOFING_ADMINS as $adminForProofing) {
-                        ?>
-    					<li><a href="#" onclick="$('submitToWebmaster').value='<?php echo $adminForProofing->id; ?>'; $('mainForm').submit(); return false;"><?php echo encodeHtml($adminForProofing->name); ?></a></li>
-    <?php
-
-                    } ?>
-    				</ul>
-				</div>
+                <div class="buttonGroup">
+                    <a class="linkSubmit" href="#workflow_submit" data-toggle='modal'>Submit</a>
+                </div>
 <?php
-
+                $taskAdmin = getAdministrator($declinedTask->fromAdminID);
+                $timeline = new \Jadu\Response\HtmlResponse('@assets/workflow/task/component/editor_rejected_timeline.html.twig', [
+                            'task' => $declinedTask,
+                            'taskAdmin' => getAdministrator($declinedTask->fromAdminID),
+                            'taskAdminLevel' => getWorkflowAdminLevel($taskAdmin->adminLevelID),
+                        ]);
+                print $timeline->toHtml();
             } else {
                 ?>
-				<a href="#" class="linkSubmit" onclick="$('submitToWebmaster').value='0'; $('mainForm').submit(); return false;">Submit</a>
-<?php
-
-            }
-?>
-            </div>
-<?php
-            if ($download->id != -1) {
-                $versions = getDownloadsPreviousVersions($download->id);
-                if ($versions->liveVersion != -1) {
-                    ?>
+                        <div class="buttonGroup">
+                            <a class="linkSubmit" href="#workflow_submit" data-toggle='modal'>Submit</a>
+                        </div>
+    <?php
+            } ?>
+                <?php
+        }
+        if ($download->id != -1) {
+            $versions = getDownloadsPreviousVersions($download->id, false);
+            $versions->loadLiveObject();
+            if ($versions->liveVersion != -1) {
+                ?>
 		</div>
 		<div class="contentStatus">
-		<input type="hidden" name="live" id="live" value="<?php echo $download->live; ?>" />
+		<input type="hidden" name="live" id="live" value="<?php print $download->live; ?>" />
 <?php
                     if ($download->live == 1) {
                         ?>
 			<span class="switch"><span>Live</span><a href="#" onclick="$('live').value='0'; $('mainForm').submit(); return false;">Take offline</a></span>
-			<input type="hidden" name="visible" id="visible" value="<?php echo $download->visible; ?>" />
+			<input type="hidden" name="visible" id="visible" value="<?php print $download->visible; ?>" />
 <?php
                         if ($download->visible == 1) {
                             ?>
 			<span class="switch"><span>Visible</span><a href="#" onclick="$('visible').value='0'; $('mainForm').submit(); return false;">Make invisible</a></span>
 <?php
-
                         } else {
                             ?>
 			<span class="switch switchOff"><a href="#" onclick="$('visible').value='1'; $('mainForm').submit(); return false;">Make Visible</a><span>Invisible</span></span>
 <?php
-
                         }
                     } else {
                         ?>
 			<span class="switch switchOff"><a href="#" onclick="$('live').value='1'; $('mainForm').submit(); return false;">Make live</a><span>Offline</span></span>
 <?php
-
                     }
-                }
             }
         } ?>
 		</div>
     </div>
 <?php
-
     } ?>
 		<!-- Download form -->
-		<input type="hidden" name="viewFile" value="<?php echo $viewFile; ?>" />
-		<input type="hidden" name="viewLink" value="<?php echo $viewLink; ?>" />
-		<input type="hidden" id="categories:bespoke" name="categories:bespoke" value="<?php echo $bespokeString ?>" />
-		<input type="hidden" id="categories:taxonomy" name="categories:taxonomy" value="<?php echo $taxonomyString ?>" />
+		<input type="hidden" name="viewFile" value="<?php print $viewFile; ?>" />
+		<input type="hidden" name="viewLink" value="<?php print $viewLink; ?>" />
+		<input type="hidden" id="categories:bespoke" name="categories:bespoke" value="<?php print $bespokeString ?>" />
+		<input type="hidden" id="categories:taxonomy" name="categories:taxonomy" value="<?php print $taxonomyString ?>" />
 		<table class="generic_table">
 			<tr>
 				<td class="generic_desc<?php if (isset($errors['title'])) {
-        ?>_error<?php 
-    } ?>"><em><?php echo $stepCounter++; ?>.</em> <p><label for="downloadTitle">Title of download*</label></p></td>
-				<td class="generic_action"><input type="text" name="title" size="42" id="downloadTitle" value="<?php echo encodeHtml($download->title); ?>"></td>
+        ?>_error<?php
+    } ?>"><em><?php print $stepCounter++; ?>.</em> <p><label for="downloadTitle">Title of download*</label></p></td>
+				<td class="generic_action"><input type="text" name="title" size="42" id="downloadTitle" value="<?php print encodeHtml($download->title); ?>"></td>
 			</tr>
 			<tr>
 				<td class="generic_desc<?php if (isset($errors['bespokeCategories']) || isset($errors['taxonomyCategories'])) {
-        ?>_error<?php 
-    } ?>"><em><?php echo $stepCounter++; ?>.</em> <p>Categories*</p></td>
+        ?>_error<?php
+    } ?>"><em><?php print $stepCounter++; ?>.</em> <p>Categories*</p></td>
 				<td class="generic_action"><input type="button" class="btn btn--old-table" id="assignCategories" value="Assign Categories" onclick="return loadLightbox('assign_category', 'lb', '');"></td>
 			</tr>
 			<tr>
 				<td class="generic_desc">
-					<em><?php echo $stepCounter++; ?>.</em>
+					<em><?php print $stepCounter++; ?>.</em>
 					<p><label for="content">Description of download</label></p>
-					<p class="generic_desc_text"><label for="remLen">Characters left </label><input readonly="readonly" type="text" id="remLen" name="remLen" size="3" maxlength="3" tabindex="-1" value="<?php echo Jadu\Validate\Text::remainingMaxCharacters(MAX_SUMMARY_CHARS_DOWNLOADS, $download->description); ?>" /></p>
+					<p class="generic_desc_text"><label for="remLen">Characters left </label><input readonly="readonly" type="text" id="remLen" name="remLen" size="3" maxlength="3" tabindex="-1" value="<?php print Jadu\Validate\Text::remainingMaxCharacters(MAX_SUMMARY_CHARS_DOWNLOADS, $download->description); ?>" /></p>
 				</td>
 				<td class="generic_action">
-					<textarea name="description" id="content" rows="3" cols="40" onkeydown="textCounter(document.mainForm.description,document.mainForm.remLen,<?php echo MAX_SUMMARY_CHARS_DOWNLOADS; ?>);" onkeyup="textCounter(document.mainForm.description,document.mainForm.remLen,<?php echo MAX_SUMMARY_CHARS_DOWNLOADS; ?>);"><?php echo encodeHtml($download->description); ?></textarea>
+					<textarea name="description" id="content" rows="3" cols="40" onkeydown="textCounter(document.mainForm.description,document.mainForm.remLen,<?php print MAX_SUMMARY_CHARS_DOWNLOADS; ?>);" onkeyup="textCounter(document.mainForm.description,document.mainForm.remLen,<?php print MAX_SUMMARY_CHARS_DOWNLOADS; ?>);"><?php print encodeHtml($download->description); ?></textarea>
 				</td>
 			</tr>
 <?php
@@ -987,18 +969,18 @@
         ?>
 			<tr>
 				<td class="generic_desc<?php if (isset($errors['password'])) {
-            ?>_error<?php 
+            ?>_error<?php
         } ?>">
-					<em><?php echo $stepCounter++; ?>.</em>
+					<em><?php print $stepCounter++; ?>.</em>
 					<p><label for="passwordEnabled">Enable download password?</label></p>
 				</td>
 				<td class="generic_action">
 					<select class="select" name="passwordEnabled" id="passwordEnabled"	onchange="if(this.value=='1') {document.getElementById('setPasswordBlock').style.display = 'block';} else {document.getElementById('setPasswordBlock').style.display = 'none';}">
 						<option value="1"<?php if (($download->passwordID > 0 && !$input->post('passwordEnabled', false)) || ($input->post('passwordEnabled', false) && $input->post('passwordEnabled'))) {
-            echo ' selected="selected"';
+            print ' selected="selected"';
         } ?> >Yes</option>
 						<option value="0"<?php if (($download->passwordID < 1 && !$input->post('passwordEnabled', false)) || ($input->post('passwordEnabled', false) && !$input->post('passwordEnabled', false))) {
-            echo ' selected="selected"';
+            print ' selected="selected"';
         } ?> >No</option>
 					</select>
 
@@ -1008,12 +990,10 @@
                         ?>
 						<label for="changePassword"><input class="checkbox" type="checkbox" id="changePassword" name="changePassword" onclick="showPasswordFields();" value="1" /> Set password</label><br />
 <?php
-
                     } else {
                         ?>
 						<input type="hidden" name="changePassword" id="changePassword" value="1" />
 <?php
-
                     } ?>
 						<span id="passwordFields" style="display:<?php ($download->passwordID > 0) ? print 'none' : print 'block'; ?>;">
 							<label for="downloadPassword">Password</label>
@@ -1024,49 +1004,82 @@
 				</td>
 			</tr>
 <?php
-
     }
 
         if ($download->id > 0 && $adminPageAccessPermissions->updateContent || $download->id == -1 && $adminPageAccessPermissions->createContent) {
             ?>
 			<tr>
-				<td colspan="2" class="generic_finish"><em><?php echo $stepCounter++; ?>.</em>
+				<td colspan="2" class="generic_finish"><em><?php print $stepCounter++; ?>.</em>
 					<span>
 						<input type="submit" class="btn submit" value="Save" name="saveDownload" />
 					</span>
 				</td>
 			</tr>
 <?php
-
         } ?>
 		</table>
 <?php
     if ($download->id != -1) {
         ?>
-	<div id="fileListArea"<?php if ($numFiles < 1) {
-            echo ' style="display: none;"';
-        } ?>>
-		<!-- List files -->
-		<table class="table <?php if ($adminPageAccessPermissions->updateContent) {
-            echo 'is-sortable';
+                <!-- List files -->
+                <table class="table <?php if ($adminPageAccessPermissions->updateContent && $numFiles > 0) {
+            print 'is-sortable';
         } ?> table--full js-ajax-sortable">
-			<thead>
-				<tr>
-					<th>File title</th>
-					<th>Type</th>
-					<th>Size</th>
-					<th>Filename / URL</th>
+                    <thead>
+                    <tr>
+                        <th>File title</th>
+                        <th>Type</th>
+                        <th>Size</th>
+                        <th>Filename / URL</th>
 <?php
-            if ($adminPageAccessPermissions->deleteContent) {
-                ?>
-				<th class="centered">Delete</th>
+                        if ($adminPageAccessPermissions->deleteContent) {
+                            ?>
+                            <th class="centered">Delete</th>
+                            <?php
+                        } ?>
+                    </tr>
+                    </thead>
+                    <tbody id="fileList">
 <?php
+                    if ($numFiles == 0) {
+                        ?>
+                        <tr id="no-result_row">
+                            <td class="no-results" colspan="99" id="no">
+                                <div class="no-results__message">
+                                    <p>There are no files attached to this download</p>
+                                </div>
+<?php
+                                if ($adminPageAccessPermissions->createContent) {
+                                    ?>
+                                    <button type="button" class="btn no-results__action" name="uploadShow"
+                                            onclick="<?php if ($file->id == -1) {
+                                        print 'viewFileFunction();';
+                                    } else {
+                                        print 'clearFile();';
+                                    } ?>">Upload New File
+                                    </button>
+<?php
+                                    if (isset($excludedFieldList) && !in_array('linkShow', $excludedFieldList)) {
+                                        ?>
+                                        <button type="button" class="btn no-results__action" name="linkShow"
+                                                onclick="<?php if ($file->id == -1) {
+                                            print 'viewLinkFunction();';
+                                        } else {
+                                            print 'clearLink();';
+                                        } ?>">New Link to File
+                                        </button>
+<?php
+                                    } ?>
+                                    <button type="button" id="dropButton1" class="btn no-results__action" name="dropboxShow"
+                                            onclick="$('dropbox').style.display = 'block'; return false;">Drop in New Files
+                                    </button>
+<?php
+                                } ?>
+                            </td>
+                        </tr>
+<?php
+                    }
 
-            } ?>
-				</tr>
-			</thead>
-		<tbody id="fileList">
-<?php
         foreach ($allFiles as $index => $fileItem) {
             if ($fileItem->url == '') {
                 $filename = $fileItem->filename;
@@ -1075,184 +1088,145 @@
                 $filename = $fileItem->url;
                 $extension = $fileItem->getURLExtension();
             } ?>
-			<tr id="file<?php echo $fileItem->id; ?>" data-content="file_<?php echo $fileItem->id; ?>">
+                        <tr id="file<?php print $fileItem->id; ?>" data-content="file_<?php print $fileItem->id; ?>">
 <?php
-            if ($adminPageAccessPermissions->updateContent) {
-                ?>
-				<td class="js-download-title"><span><a href="./websection_downloads.php?downloadID=<?php echo $download->id; ?>&amp;fileID=<?php echo $fileItem->id; ?>"><?php echo encodeHtml($fileItem->title); ?></a>
+                            if ($adminPageAccessPermissions->updateContent) {
+                                ?>
+                                <td class="js-download-title"><span><a
+                                                href="./websection_downloads.php?downloadID=<?php print $download->id; ?>&amp;fileID=<?php print $fileItem->id; ?>"><?php print encodeHtml($fileItem->title); ?></a>
+<!--include file for copy to clipboard button-->
+                        <?php if (file_exists(JADU_HOME . "/custom/fordham_websection_downloads_custom.php")) {
+                              include("custom/fordham_websection_downloads_custom.php");}
+                        ?>
+
+
+</span>
+                                </td>
+<?php
+                            } else {
+                                ?>
 
 <!--include file for copy to clipboard button-->
                         <?php if (file_exists(JADU_HOME . "/custom/fordham_websection_downloads_custom.php")) {
                               include("custom/fordham_websection_downloads_custom.php");}
                         ?>
 
-</span></td>
+
+                                <td><span><?php print encodeHtml($fileItem->title); ?></span></td>
+                                <?php
+                            } ?>
+                            <td><?php if ($extension != '') {
+                                ?><span><?php print $extension; ?></span><?php
+                            } else {
+                                print '&nbsp;';
+                            } ?></td>
+                            <td><span><?php print $fileItem->getHumanReadableSize(); ?></span></td>
+                            <td><span><?php print encodeHtml($filename); ?></span></td>
 <?php
-
-            } else {
-                ?>
-
-<!--include file for copy to clipboard button-->
-                        <?php if (file_exists(JADU_HOME . "/custom/fordham_websection_downloads_custom.php")) {
-                              include("custom/fordham_websection_downloads_custom.php");}
-                        ?>
-
-				<td><span><?php echo encodeHtml($fileItem->title); ?></span></td>
+                            if ($adminPageAccessPermissions->deleteContent) {
+                                ?>
+                                <td class="generic_row_end"><span><input class="checkbox" type="checkbox"
+                                                                         name="deleteID[]"
+                                                                         value="<?php print $fileItem->id; ?>"></span>
+                                </td>
+                                <?php
+                            } ?>
+                        </tr>
 <?php
-
-            } ?>
-				<td><?php if ($extension != '') {
-                ?><span><?php echo $extension; ?></span><?php 
-            } else {
-                echo '&nbsp;';
-            } ?></td>
-				<td><span><?php echo $fileItem->getHumanReadableSize(); ?></span></td>
-				<td><span><?php echo encodeHtml($filename); ?></span></td>
-<?php
-            if ($adminPageAccessPermissions->deleteContent) {
-                ?>
-				<td class="generic_row_end"><span><input class="checkbox" type="checkbox" name="deleteID[]" value="<?php echo $fileItem->id; ?>"></span></td>
-<?php
-
-            } ?>
-			</tr>
-<?php
-
         } ?>
-		</tbody>
-		<tfoot>
-			<tr>
-				<td class="table__actions" colspan="4">
-<?php
-            if ($adminPageAccessPermissions->createContent) {
-                ?>
-				<button type="button" class="btn" name="uploadShow" onclick="<?php if ($file->id == -1) {
-                    echo 'viewFileFunction();';
-                } else {
-                    echo 'clearFile();';
-                } ?>">Upload new file</button>
-<?php
-                if (isset($excludedFieldList) && !in_array('linkShow', $excludedFieldList)) {
-                    ?>
-					&nbsp;
-					<button type="button" class="btn" name="linkShow" onclick="<?php if ($file->id == -1) {
-                        echo 'viewLinkFunction();';
-                    } else {
-                        echo 'clearLink();';
-                    } ?>">New Link to File</button>
-<?php
+                    </tbody>
+                    <tfoot id="filelist_actions" <?php if ($numFiles == 0) {
+            print 'style="display: none;"';
+        } ?>>
+                    <tr>
+                        <td class="table__actions" colspan="4">
+                            <?php
+                            if ($adminPageAccessPermissions->createContent) {
+                                ?>
+                                <button type="button" class="btn" name="uploadShow"
+                                        onclick="<?php if ($file->id == -1) {
+                                    print 'viewFileFunction();';
+                                } else {
+                                    print 'clearFile();';
+                                } ?>">Upload new file
+                                </button>
+                                <?php
+                                if (isset($excludedFieldList) && !in_array('linkShow', $excludedFieldList)) {
+                                    ?>
+                                    &nbsp;
+                                    <button type="button" class="btn" name="linkShow"
+                                            onclick="<?php if ($file->id == -1) {
+                                        print 'viewLinkFunction();';
+                                    } else {
+                                        print 'clearLink();';
+                                    } ?>">New Link to File
+                                    </button>
+                                    <?php
+                                } ?>
+                                &nbsp;
+                                <button type="button" id="dropButton" class="btn" name="dropboxShow"
+                                        onclick="$('dropbox').style.display = 'block'; return false;">Drop in new files
+                                </button>
+                                <?php
+                            } ?>
+                        </td>
 
-                } ?>
-					&nbsp;
-					<button type="button" id="dropButton"  class="btn" name="dropboxShow" onclick="$('dropbox').style.display = 'block'; return false;" >Drop in new files</button>
-<?php
+                        <?php
+                        if ($adminPageAccessPermissions->deleteContent) {
+                            ?>
+                            <td class="table__actions centered">
+                                <button class="btn btn--danger" name="deleteFiles"
+                                        onClick="return confirmDeleteSelected('deleteID[]');">Delete
+                                </button>
+                            </td>
+                            <?php
+                        } ?>
+                    </tr>
+                    </tfoot>
+                </table>
+    </form>
 
-            } ?>
-				</td>
 
-<?php
-            if ($adminPageAccessPermissions->deleteContent) {
-                ?>
-				<td class="table__actions centered">
-					<button class="btn btn--danger" name="deleteFiles" onClick="return confirmDeleteSelected('deleteID[]');">Delete</button>
-				</td>
-<?php
-
-            } ?>
-			</tr>
-		</tfoot>
-		</table>
-	</div>
-
-	<table id="noFilesArea" class="table table--full<?php if ($numFiles > 0) {
-                echo ' hide';
-            } ?>">
-		<thead>
-			<tr>
-				<th>File title</th>
-				<th>Type</th>
-				<th>Size</th>
-				<th>Filename / URL</th>
-				<td></td>
-			</tr>
-		</thead>
-		<tbody>
-			<tr>
-				<td class="no-results" colspan="99">
-					<div class="no-results__message">
-						<p>There are no files attached to this download</p>
-					</div>
-<?php
-        if ($adminPageAccessPermissions->createContent) {
-            ?>
-					<button type="button" class="btn no-results__action" name="uploadShow" onclick="<?php if ($file->id == -1) {
-                echo 'viewFileFunction();';
-            } else {
-                echo 'clearFile();';
-            } ?>">Upload New File</button>
-<?php
-                if (isset($excludedFieldList) && !in_array('linkShow', $excludedFieldList)) {
-                    ?>
-					<button type="button" class="btn no-results__action" name="linkShow" onclick="<?php if ($file->id == -1) {
-                        echo 'viewLinkFunction();';
-                    } else {
-                        echo 'clearLink();';
-                    } ?>">New Link to File</button>
-<?php
-
-                } ?>
-					<button type="button" id="dropButton" class="btn no-results__action" name="dropboxShow" onclick="$('dropbox').style.display = 'block'; return false;" >Drop in New Files</button>
-<?php
-
-        } ?>
-				</td>
-			</tr>
-		</tbody>
-	</table>
-	</form>
 	<div id="fileArea" style="display: <?php if ($viewFile == 'true' || isset($errors['fileTitle'])) {
-            echo 'block';
-        } else {
-            echo 'none';
-        } ?>;">
+                            print 'block';
+                        } else {
+                            print 'none';
+                        } ?>;">
 <?php
     if ($retail) {
         ?>
-			<form name="fileForm" id="fileForm" action="./retail_product_details_download_detail.php?productID=<?php echo intval($product->id); ?>&downloadID=<?php echo $download->id; ?>" method="post" enctype="multipart/form-data">
+			<form name="fileForm" id="fileForm" action="./retail_product_details_download_detail.php?productID=<?php print intval($product->id); ?>&downloadID=<?php print $download->id; ?>" method="post" enctype="multipart/form-data">
 <?php
-
     } else {
         ?>
-			<form  name="fileForm" id="fileForm" action="./websection_downloads.php?downloadID=<?php echo $download->id; ?>" method="post" enctype="multipart/form-data">
+			<form  name="fileForm" id="fileForm" action="./websection_downloads.php?downloadID=<?php print $download->id; ?>" method="post" enctype="multipart/form-data">
 <?php
-
     } ?>
 			<input type="hidden" name="viewFile" value="true" />
-			<input type="hidden" name="fileID" value="<?php echo $file->id; ?>" />
-			<input type="hidden" name="MAX_FILE_SIZE" value="<?php echo MAX_UPLOAD_FILE_SIZE_BYTES; ?>" />
+			<input type="hidden" name="fileID" value="<?php print $file->id; ?>" />
+			<input type="hidden" name="MAX_FILE_SIZE" value="<?php print MAX_UPLOAD_FILE_SIZE_BYTES; ?>" />
 			<table class="generic_table">
 				<tr>
 					<td class="generic_desc<?php if (isset($errors['fileTitle']) && $errors['fileTitle']) {
-        echo '_error';
+        print '_error';
     } ?>"><em><?php $stepCounter = 1;
-        echo $stepCounter++; ?>.</em> <p><label for="fileTitle">Title*</label></p></td>
-					<td class="generic_action"><input type="text" name="fileTitle" id="fileTitle" size="42" value="<?php echo encodeHtml($file->title); ?>"></td>
+        print $stepCounter++; ?>.</em> <p><label for="fileTitle">Title*</label></p></td>
+					<td class="generic_action"><input type="text" name="fileTitle" id="fileTitle" size="42" value="<?php print encodeHtml($file->title); ?>"></td>
 				</tr>
 <?php
                 if ($file->id != -1) {
                     ?>
 				<tr id="change_file">
-					<td class="generic_desc"><em><?php echo $stepCounter++; ?>.</em> <p>Change File?</p></td>
-					<td class="generic_action"><input type="checkbox" name="changeFile" id="changeFile" onclick="showFileUploadRow('');"<?php echo $file->id != -1 && (!$input->post('saveFile') || (!isset($errors['downloadFileBrowse']) && !isset($errors['webdavFile']))) ? '' : ' checked="checked"'; ?> /></td>
+					<td class="generic_desc"><em><?php print $stepCounter++; ?>.</em> <p>Change File?</p></td>
+					<td class="generic_action"><input type="checkbox" name="changeFile" id="changeFile" onclick="showFileUploadRow('');"<?php print $file->id != -1 && (!$input->post('saveFile') || (!isset($errors['downloadFileBrowse']) && !isset($errors['webdavFile']))) ? '' : ' checked="checked"'; ?> /></td>
 				</tr>
 <?php
-
                 } ?>
-				<tr id="upload_row"<?php echo $file->id != -1 && (!$input->post('saveFile', false) || (!isset($errors['downloadFileBrowse']) && !isset($errors['webdavFile']))) ? ' style="display:none;"' : ''; ?>>
+				<tr id="upload_row"<?php print $file->id != -1 && (!$input->post('saveFile', false) || (!isset($errors['downloadFileBrowse']) && !isset($errors['webdavFile']))) ? ' style="display:none;"' : ''; ?>>
 					<td class="generic_desc<?php if (isset($errors['downloadFileBrowse']) || isset($errors['webdavFile'])) {
-                    echo '_error';
-                } ?>"><em><?php echo $stepCounter++; ?>.</em> <p><label id="fileSelection">File selection</label><?php if (!$input->get('fileID', false)) {
-                    echo '*';
+                    print '_error';
+                } ?>"><em><?php print $stepCounter++; ?>.</em> <p><label id="fileSelection">File selection</label><?php if (!$input->get('fileID', false)) {
+                    print '*';
                 } ?></p></td>
 					<td class="generic_action">
 <?php
@@ -1261,10 +1235,9 @@
 						<input type="hidden" name="upload_method" id="upload_method" value="upload" />
 						<div id="download_upload_file">
 							<input type="file" name="downloadFileBrowse" size="48" value="" aria-labelledby="fileSelection"/>
-							<p>The maximum allowed file size is: <?php echo formatFilesize(MAX_UPLOAD_FILE_SIZE_BYTES); ?></p>
+							<p>The maximum allowed file size is: <?php print formatFilesize(MAX_UPLOAD_FILE_SIZE_BYTES); ?></p>
 						</div>
 <?php
-
                     } else {
                         ?>
 						<script type="text/javascript">
@@ -1285,25 +1258,24 @@
 						</script>
 						<select name="upload_method" id="upload_method" onchange="displayUploadMethod(this);" aria-labelledby="fileSelection">
 							<option value="">Select an upload method</option>
-							<option value="upload"<?php echo $input->post('upload_method') == 'upload' ? ' selected="selected"' : ''; ?>>Upload a new file</option>
-							<option value="webdav"<?php echo $input->post('upload_method')  == 'webdav' ? ' selected="selected"' : ''; ?>>Select a file from the bulk upload list</option>
+							<option value="upload"<?php print $input->post('upload_method') == 'upload' ? ' selected="selected"' : ''; ?>>Upload a new file</option>
+							<option value="webdav"<?php print $input->post('upload_method') == 'webdav' ? ' selected="selected"' : ''; ?>>Select a file from the bulk upload list</option>
 						</select><br />
 						<br style="clear:both" />
 						<div id="download_upload_file"<?php if (!$input->post('upload_method', false) || $input->post('upload_method') != 'upload') {
-                            echo ' style="display:none;"';
+                            print ' style="display:none;"';
                         } ?>>
 							<input type="file" name="downloadFileBrowse" size="48" value="" aria-labelledby="fileSelection"/>
-							<p>The maximum allowed file size is: <?php echo formatFilesize(MAX_UPLOAD_FILE_SIZE_BYTES); ?></p>
+							<p>The maximum allowed file size is: <?php print formatFilesize(MAX_UPLOAD_FILE_SIZE_BYTES); ?></p>
 						</div>
 						<div id="download_webdav_file"<?php if (!$input->post('upload_method', false) || $input->post('upload_method') != 'webdav') {
-                            echo ' style="display:none;"';
+                            print ' style="display:none;"';
                         } ?>>
 							<input type="hidden" name="webdavFile" id="webdavFile" value="" />
 							<input type="hidden" name="webdavFileFilter" id="webdavFileFilter" value="" />
 							<input type="button" class="btn" id="selectFile" value="Select File from Bulk Uploads" onclick="return loadLightbox('webdav_uploads', 'lb', 'type=downloads&filter=admin');">
 						</div>
 <?php
-
                     } ?>
 					</td>
 				</tr>
@@ -1312,12 +1284,11 @@
                 ?>
 				<tr>
 					<td colspan="2" class="generic_finish">
-						<em><?php echo $stepCounter++; ?>.</em>
+						<em><?php print $stepCounter++; ?>.</em>
 						<span><input type="submit" class="btn submit" value="Save" name="saveFile" /></span>
 					</td>
 				</tr>
 <?php
-
             }
 
         if ($file->id > 0 && $adminPageAccessPermissions->deleteContent) {
@@ -1326,49 +1297,48 @@
 					<td class="generic_delete" colspan="2"><span><input type="submit" class="btn btn--danger" value="Delete File" name="deleteFile" onclick="return confirmSubmit();" /></span></td>
 				</tr>
 <?php
-
         } ?>
 			</table>
 		</form>
 	</div>
 
 	<div id="linkArea" style="display: <?php if ($viewLink == 'true') {
-            echo 'block';
+            print 'block';
         } else {
-            echo 'none';
+            print 'none';
         } ?>;">
-		<form name="linkForm" id="linkForm" action="./websection_downloads.php?downloadID=<?php echo $download->id; ?>" method="post" enctype="multipart/form-data">
+		<form name="linkForm" id="linkForm" action="./websection_downloads.php?downloadID=<?php print $download->id; ?>" method="post" enctype="multipart/form-data">
 			<input type="hidden" name="viewLink" value="true" />
-			<input type="hidden" name="fileID" value="<?php echo $file->id; ?>" />
+			<input type="hidden" name="fileID" value="<?php print $file->id; ?>" />
+            <input type="hidden" name="downloadID" value="<?php print $download->id; ?>" />
 			<table class="generic_table">
 				<tr>
 					<td class="generic_desc<?php if (!empty($errors['linkTitle'])) {
-            echo '_error';
+            print '_error';
         } ?>"><em><?php $stepCounter = 1;
-        echo $stepCounter++; ?>.</em><p><label for="linkTitle">Title</label></p></td>
-					<td class="generic_action"><input type="text" name="linkTitle" id="linkTitle" size="43" value="<?php echo encodeHtml($file->title); ?>" /></td>
+        print $stepCounter++; ?>.</em><p><label for="linkTitle">Title</label></p></td>
+					<td class="generic_action"><input type="text" name="linkTitle" id="linkTitle" size="43" value="<?php print encodeHtml($file->title); ?>" /></td>
 				</tr>
 				<tr>
 					<td class="generic_desc<?php if (!empty($errors['url'])) {
-            echo '_error';
-        } ?>"><em><?php echo $stepCounter++; ?>.</em> <p><label for="targetFileURL">Target File URL</label></p><p class="generic_desc_text">(e.g. http://www.example.com/file.pdf)</p></td>
-					<td class="generic_action"><input type="text" name="url" id="targetFileURL" size="43" value="<?php echo encodeHtml($file->url); ?>" /></td>
+            print '_error';
+        } ?>"><em><?php print $stepCounter++; ?>.</em> <p><label for="targetFileURL">Target File URL</label></p><p class="generic_desc_text">(e.g. http://www.example.com/file.pdf)</p></td>
+					<td class="generic_action"><input type="text" name="url" id="targetFileURL" size="43" value="<?php print encodeHtml($file->url); ?>" /></td>
 				</tr>
 				<tr>
 					<td class="generic_desc<?php if (!empty($errors['size'])) {
-            echo '_error';
-        } ?>"><em><?php echo $stepCounter++; ?>.</em> <p><label id="targetFileSize">Target File size</label></p><p class="generic_desc_text">(Numerical only)</p></td>
+            print '_error';
+        } ?>"><em><?php print $stepCounter++; ?>.</em> <p><label id="targetFileSize">Target File size</label></p><p class="generic_desc_text">(Numerical only)</p></td>
 					<td class="generic_action">
-						<input type="text" name="size" size="28" aria-labelledby="targetFileSize" value="<?php echo $file->getHumanReadableSizeNoExtension(); ?>" />&nbsp;
+						<input type="text" name="size" size="28" aria-labelledby="targetFileSize" value="<?php print $file->getHumanReadableSizeNoExtension(); ?>" />&nbsp;
 						<select class="select" name="selectSize" size="1" aria-labelledby="targetFileSize">
 <?php
                         foreach ($FILE_SIZES as $sizeExtension) {
                             ?>
-							<option value="<?php echo $sizeExtension; ?>"<?php if (mb_strpos($file->getHumanReadableSize(), $sizeExtension) !== false) {
-                                echo ' selected="selected"';
-                            } ?>><?php echo $sizeExtension; ?></option>
+							<option value="<?php print $sizeExtension; ?>"<?php if (mb_strpos($file->getHumanReadableSize(), $sizeExtension) !== false) {
+                                print ' selected="selected"';
+                            } ?>><?php print $sizeExtension; ?></option>
 <?php
-
                         } ?>
 						</select>
 					</td>
@@ -1377,10 +1347,9 @@
             if (($file->id > 0 && $adminPageAccessPermissions->updateContent) || ($file->id < 1 && $adminPageAccessPermissions->createContent)) {
                 ?>
 				<tr>
-					<td colspan="2" class="generic_finish"><em><?php echo $stepCounter++; ?>.</em> <span><input type="submit" class="btn submit" value="Save" name="saveLink" /></span></td>
+					<td colspan="2" class="generic_finish"><em><?php print $stepCounter++; ?>.</em> <span><input type="submit" class="btn submit" value="Save" name="saveLink" /></span></td>
 				</tr>
 <?php
-
             }
 
         if ($file->id > 0 && $adminPageAccessPermissions->deleteContent) {
@@ -1389,13 +1358,12 @@
 					<td class="generic_delete" colspan="2"><span><input type="submit" class="btn btn--danger" value="Delete Link" name="deleteFile" onclick="return confirmSubmit();" /></span></td>
 				</tr>
 <?php
-
         } ?>
 			</table>
 		</form>
 	</div>
 
-	<form name="dropForm" id="dropForm" action="./websection_downloads.php?downloadID=<?php echo $download->id; ?>" method="post" enctype="multipart/form-data">
+	<form name="dropForm" id="dropForm" action="./websection_downloads.php?downloadID=<?php print $download->id; ?>" method="post" enctype="multipart/form-data">
 		<div id="dropbox" style="display: none;">
 			<p><label for="fileElem">Drop your files here</p>
 			<input type="file" id="fileElem" multiple="multiple" style="display: none;" />
@@ -1433,7 +1401,7 @@
 				progress.appendChild(counter);
 
 				var xhr = new XMLHttpRequest();
-				xhr.open("POST", 'uploadFileFromDragDrop.php?downloadID=<?php echo $download->id; ?>');
+				xhr.open("POST", 'uploadFileFromDragDrop.php?downloadID=<?php print $download->id; ?>');
 
 				xhr.upload.addEventListener("progress", function(e) {
 					var pc = parseInt((e.loaded / e.total * 100));
@@ -1485,13 +1453,17 @@
 			}
 
 			function addRow(file, id) {
+                // hide the no results message
+                var noresults = document.getElementById('no-result_row');
+                if (noresults) {
+                    noresults.style.display = 'none';
+                }
 
-				if (document.getElementById('noFilesArea').style.display == '') {
-					document.getElementById('noFilesArea').style.display = 'none';
-					document.getElementById('fileListArea').style.display = '';
-				}
+                var actions = document.getElementById('filelist_actions');
+                actions.style.display = 'block';
+
+                // add the file row
 				var tbody = document.getElementById('fileList');
-
 				var tr = document.createElement('tr');
 				tr.id = 'file'+id;
 <?php
@@ -1500,7 +1472,6 @@
 					tr.className = 'ui-sortable-handle';
 					tr.setAttribute('data-content', 'file_' + id);
 <?php
-
                 } ?>
 				tbody.appendChild(tr);
 
@@ -1532,14 +1503,12 @@
             if ($adminPageAccessPermissions->updateContent) {
                 ?>
 				var span = document.createElement('a');
-				span.href = './websection_downloads.php?downloadID=<?php echo $download->id; ?>&fileID='+id;
+				span.href = './websection_downloads.php?downloadID=<?php print $download->id; ?>&fileID='+id;
 <?php
-
             } else {
                 ?>
 				var span = document.createElement('span');
 <?php
-
             } ?>
 
 				var span2 = document.createElement('span');
@@ -1572,15 +1541,74 @@
 
 				span4.appendChild(input);
 <?php
-
             } ?>
 			}
 
 	</script>
 <?php
+    }
+    }
+if (isset($download) && $download->id > 0) {
+    if (isset($task) && $task->id > 0) {
+        if (!isset($sendToNextLevelForApproval) || !$sendToNextLevelForApproval) {
+            $modal = new \Jadu\Response\HtmlResponse('@assets/workflow/task/workflow_task_approve.html.twig', [
+                    'action_url' => '/websections/websection_downloads.php?downloadID=' . $download->id,
+                    'args' => [
+                        'approve' => ' Approve ',
+                        'taskID' => $task->id,
+                    ],
+                    'siteRoot' => SECURE_JADU_PATH,
+                ]);
 
+            print $modal->toHtml();
+        } else {
+            $modal = new \Jadu\Response\HtmlResponse('@assets/workflow/task/workflow_task_approve.html.twig', [
+                'action_url' => '/websections/websection_downloads.php?downloadID=' . $download->id,
+                'args' => [
+                    'approve' => ' Approve ',
+                    'taskID' => $task->id,
+                ],
+                'siteRoot' => SECURE_JADU_PATH,
+                'proofingAdmins' => (is_array($PROOFING_ADMINS) && !empty($PROOFING_ADMINS)) ? $PROOFING_ADMINS : [],
+                'sendToNextLevelForApproval' => $sendToNextLevelForApproval,
+            ]);
+
+            print $modal->toHtml();
+        }
+        $modal = new \Jadu\Response\HtmlResponse('@assets/workflow/task/workflow_task_reject.html.twig', [
+                'args' => [
+                    'taskID' => $task->id,
+                    'workflowID' => $THIS_WORKFLOW->id,
+                ],
+                'siteRoot' => SECURE_JADU_PATH,
+            ]);
+
+        print $modal->toHtml();
+        $modal = new \Jadu\Response\HtmlResponse('@assets/workflow/task/workflow_task_cancel_pending.html.twig', [
+                'args' => [
+                    'taskID' => $task->id,
+                ],
+                'siteRoot' => SECURE_JADU_PATH,
+            ]);
+        print $modal->toHtml();
+    } else {
+        $pageURL = '/websections/websection_downloads.php?downloadID=' . $download->id;
+        $modal = new \Jadu\Response\HtmlResponse('@assets/workflow/task/workflow_task_submit.html.twig', [
+                'args' => [
+                    'dbTableName' => DOWNLOADS_TABLE,
+                    'itemId' => $download->id,
+                    'itemTitle' => $download->title,
+                    'workflowId' => $THIS_WORKFLOW->id,
+                    'adminLevelId' => $nextWorkflowAdminLevel->id,
+                    'pageUrl' => $pageURL,
+                    'pageTitle' => 'Download',
+                ],
+            'siteRoot' => SECURE_JADU_PATH,
+            'proofingAdmins' => (is_array($PROOFING_ADMINS) && !empty($PROOFING_ADMINS)) ? $PROOFING_ADMINS : [],
+        ]);
+        print $modal->toHtml();
     }
-    }
+}
     include '../includes/footer.php';
 ?>
 <script type="text/javascript">
