@@ -1,6 +1,11 @@
-<!--copy to clipboard button-->
-   <script src="//cdnjs.cloudflare.com/ajax/libs/clipboard.js/1.5.12/clipboard.min.js"></script>
-<script>
-new Clipboard('.fu_copytocbbtn');
-</script>
-     <button class="fu_copytocbbtn" data-clipboard-text="<?php print 'http://'. DOMAIN . buildDownloadsURL(-1, $fileItem->id, $download->id); ?>">Copy PDF URL</button>
+<?php
+if ($_GET["downloadID"] == "3586")
+{
+?>
+
+ <br /><button class="fu_copytocbbtn" data-clipboard-text="<?php print 'https://'. DOMAIN . '/download/downloads/id/' . $fileItem->id . '/' .$filename; ?>">Copy PDF URL</button>
+
+<?php
+}
+?>
+
