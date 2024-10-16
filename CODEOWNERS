@@ -1,2 +1,3 @@
-testbranch.txt @nelestates
-public_html/site @nelestates
+testingbranch.txt @nelestates
+public_html/site/* @nelestates
+* @azachwill/admins
