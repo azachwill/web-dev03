@@ -1,6 +1,6 @@
 * @azachwill/admins
 !testingbranch.txt
-!public_html/site/*
-
 testingbranch.txt @nelestates
+
+!public_html/site/*
 public_html/site/* @nelestates
